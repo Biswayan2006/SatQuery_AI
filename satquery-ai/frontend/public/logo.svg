@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Satellite body -->
+  <rect x="18" y="18" width="12" height="12" rx="2" fill="#3AABFF" opacity="0.9"/>
+  <!-- Solar panels -->
+  <rect x="4" y="20" width="12" height="8" rx="1.5" fill="#1E7FC8" opacity="0.8"/>
+  <rect x="32" y="20" width="12" height="8" rx="1.5" fill="#1E7FC8" opacity="0.8"/>
+  <!-- Antenna -->
+  <line x1="24" y1="18" x2="24" y2="8" stroke="#60C5FF" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="24" cy="7" r="2" fill="#60C5FF"/>
+  <!-- Orbit arcs -->
+  <path d="M8 36 Q24 16 40 36" stroke="#3AABFF" stroke-width="1.2" fill="none" opacity="0.4" stroke-dasharray="3 2"/>
+  <path d="M10 40 Q24 20 38 40" stroke="#3AABFF" stroke-width="0.8" fill="none" opacity="0.25" stroke-dasharray="2 3"/>
+  <!-- Signal dot -->
+  <circle cx="38" cy="10" r="2.5" fill="#22C55E" opacity="0.9"/>
+  <circle cx="38" cy="10" r="5" fill="none" stroke="#22C55E" stroke-width="1" opacity="0.4"/>
+</svg>
