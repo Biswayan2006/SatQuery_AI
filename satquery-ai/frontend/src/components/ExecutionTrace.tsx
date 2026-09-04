@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, ChevronDown, ChevronUp, Clock, Cpu, CheckCheck } from "lucide-react";
+import {
+  Terminal, ChevronDown, ChevronUp, Clock, Cpu, CheckCheck,
+  Layers, Hexagon,
+} from "lucide-react";
 import type { ExecutionSummary } from "@/types";
 
 interface Props {
@@ -16,23 +19,44 @@ export default function ExecutionTrace({ summary, defaultOpen = false }: Props) 
   const lines = buildTraceLines(summary);
 
   return (
-    <div className="glass-card overflow-hidden border-slate-700/50">
+    <div
+      className="overflow-hidden rounded-lg"
+      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+    >
       {/* Header */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/40 transition-colors"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 transition-colors no-tap"
+        style={{
+          background: open ? "var(--accent-soft)" : "transparent",
+          borderBottom: open ? "1px solid var(--border)" : "none",
+        }}
+        onMouseEnter={(e) => {
+          if (!open) e.currentTarget.style.background = "var(--bg-raised)";
+        }}
+        onMouseLeave={(e) => {
+          if (!open) e.currentTarget.style.background = "transparent";
+        }}
       >
-        <div className="flex items-center gap-2.5">
-          <Terminal className="w-4 h-4 text-emerald-400" />
-          <span className="text-sm font-semibold text-slate-300">Execution Trace</span>
-          <span className="text-xs text-slate-500 font-mono">
-            {summary.processing_time_ms.toFixed(0)} ms
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Terminal className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
+          <span className="text-xs font-semibold truncate" style={{ color: "var(--text-secondary)" }}>
+            Audit trail — execution log
+          </span>
+          <span
+            className="text-[10px] font-mono flex-shrink-0 px-1.5 py-0.5 rounded"
+            style={{
+              background: "var(--bg-inset)",
+              color: "var(--text-muted)",
+            }}
+          >
+            {(summary.processing_time_ms / 1000).toFixed(2)}s
           </span>
         </div>
         {open ? (
-          <ChevronUp className="w-4 h-4 text-slate-500" />
+          <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         ) : (
-          <ChevronDown className="w-4 h-4 text-slate-500" />
+          <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         )}
       </button>
 
@@ -42,61 +66,101 @@ export default function ExecutionTrace({ summary, defaultOpen = false }: Props) 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="overflow-hidden"
           >
             {/* Terminal body */}
-            <div className="bg-[#060d1a] border-t border-slate-800/60 p-4 font-mono text-xs">
+            <div
+              className="p-3.5 font-mono"
+              style={{
+                background: "var(--bg-inset)",
+                fontSize: "11px",
+                lineHeight: 1.6,
+              }}
+            >
               {/* Metrics row */}
-              <div className="flex flex-wrap gap-4 mb-4 pb-3 border-b border-slate-800">
+              <div
+                className="flex flex-wrap gap-3 mb-3 pb-3"
+                style={{ borderBottom: "1px dashed var(--border-strong)" }}
+              >
                 <MetricChip
-                  icon={<Cpu className="w-3 h-3" />}
-                  label="Task"
-                  value={summary.selected_task}
-                  color="text-violet-400"
+                  icon={<Hexagon className="w-3 h-3" style={{ color: "var(--accent)" }} />}
+                  label="TASK"
+                  value={summary.selected_task.replace(/_/g, " ")}
+                  color="var(--accent)"
                 />
                 <MetricChip
-                  icon={<CheckCheck className="w-3 h-3" />}
-                  label="Confidence"
+                  icon={<CheckCheck className="w-3 h-3" style={{ color: "var(--veg)" }} />}
+                  label="CONF"
                   value={`${(summary.task_confidence * 100).toFixed(0)}%`}
-                  color="text-emerald-400"
+                  color="var(--veg)"
                 />
                 <MetricChip
-                  icon={<Clock className="w-3 h-3" />}
-                  label="Time"
-                  value={`${summary.processing_time_ms.toFixed(1)} ms`}
-                  color="text-satellite-400"
+                  icon={<Clock className="w-3 h-3" style={{ color: "var(--water)" }} />}
+                  label="TOTAL"
+                  value={`${summary.processing_time_ms.toFixed(0)} ms`}
+                  color="var(--water)"
+                />
+                <MetricChip
+                  icon={<Cpu className="w-3 h-3" style={{ color: "var(--sar)" }} />}
+                  label="MODELS"
+                  value={String(summary.models_used.length)}
+                  color="var(--sar)"
+                />
+                <MetricChip
+                  icon={<Layers className="w-3 h-3" style={{ color: "var(--bare)" }} />}
+                  label="STEPS"
+                  value={String(summary.steps.length)}
+                  color="var(--bare)"
                 />
               </div>
 
               {/* Log lines */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {lines.map((line, i) => (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05, duration: 0.2 }}
-                    className={`terminal-line ${line.type}`}
+                    transition={{ delay: i * 0.04, duration: 0.18 }}
+                    className="flex items-start gap-2"
                   >
-                    <span className="text-slate-600 mr-2 select-none">{String(i + 1).padStart(2, "0")}</span>
-                    <span className="text-slate-600 mr-2">{getPrompt(line.type)}</span>
-                    {line.text}
+                    <span style={{ color: "var(--text-faint)", userSelect: "none", flexShrink: 0 }}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span style={{ color: line.color, flexShrink: 0 }}>
+                      {getPrompt(line.type)}
+                    </span>
+                    <span
+                      className="whitespace-pre-wrap break-all"
+                      style={{ color: line.textColor }}
+                    >
+                      {line.text}
+                    </span>
                   </motion.div>
                 ))}
               </div>
 
               {/* Parameters */}
               {Object.keys(summary.parameters).length > 0 && (
-                <div className="mt-4 pt-3 border-t border-slate-800">
-                  <p className="text-slate-500 mb-2">─── Parameters</p>
-                  {Object.entries(summary.parameters).map(([k, v]) => (
-                    <div key={k} className="terminal-line info">
-                      <span className="text-slate-600 mr-2 select-none">  </span>
-                      <span className="text-slate-400">{k}</span>
-                      <span className="text-slate-600"> = </span>
-                      <span className="text-satellite-400">{String(v)}</span>
-                    </div>
-                  ))}
+                <div
+                  className="mt-3 pt-3"
+                  style={{ borderTop: "1px dashed var(--border-strong)" }}
+                >
+                  <p className="mb-1.5" style={{ color: "var(--text-faint)" }}>
+                    ─── PARAMETERS
+                  </p>
+                  <div className="space-y-0.5 pl-3">
+                    {Object.entries(summary.parameters).map(([k, v]) => (
+                      <div key={k} className="flex items-start gap-2">
+                        <span style={{ color: "var(--text-muted)" }}>{k}</span>
+                        <span style={{ color: "var(--text-faint)" }}>=</span>
+                        <span style={{ color: "var(--water)", wordBreak: "break-all" }}>
+                          {String(v)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -109,33 +173,49 @@ export default function ExecutionTrace({ summary, defaultOpen = false }: Props) 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type TraceLine = { text: string; type: "info" | "success" | "warn" };
+type TraceType = "info" | "success" | "warn";
+type TraceLine = { text: string; type: TraceType; color: string; textColor: string };
 
 function buildTraceLines(summary: ExecutionSummary): TraceLine[] {
   const lines: TraceLine[] = [];
 
-  lines.push({ type: "info", text: `[CLASSIFIER] task=${summary.selected_task}  confidence=${(summary.task_confidence * 100).toFixed(0)}%` });
+  lines.push({
+    type: "info",
+    text: `[CLASSIFIER] task=${summary.selected_task}  confidence=${(summary.task_confidence * 100).toFixed(0)}%`,
+    color: "var(--water)",
+    textColor: "var(--text-muted)",
+  });
 
   summary.steps.forEach((step, i) => {
+    const isLast = i === summary.steps.length - 1;
     lines.push({
-      type: i < summary.steps.length - 1 ? "info" : "success",
+      type: isLast ? "success" : "info",
       text: `[STEP ${i + 1}/${summary.steps.length}] ${step.replace(/_/g, " ")}`,
+      color: isLast ? "var(--veg)" : "var(--water)",
+      textColor: isLast ? "var(--text-secondary)" : "var(--text-muted)",
     });
   });
 
   summary.models_used.forEach((model) => {
-    lines.push({ type: "success", text: `[MODEL] ${model} — inference complete` });
+    lines.push({
+      type: "success",
+      text: `[MODEL] ${model} — inference complete`,
+      color: "var(--veg)",
+      textColor: "var(--text-secondary)",
+    });
   });
 
   lines.push({
     type: "success",
-    text: `[DONE] total=${summary.processing_time_ms.toFixed(1)} ms`,
+    text: `[DONE] total=${summary.processing_time_ms.toFixed(1)} ms · steps=${summary.steps.length} · models=${summary.models_used.length}`,
+    color: "var(--veg)",
+    textColor: "var(--text-primary)",
   });
 
   return lines;
 }
 
-function getPrompt(type: TraceLine["type"]): string {
+function getPrompt(type: TraceType): string {
   switch (type) {
     case "success": return "✓";
     case "warn": return "!";
@@ -155,10 +235,18 @@ function MetricChip({
   color: string;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-slate-500">{icon}</span>
-      <span className="text-slate-500">{label}:</span>
-      <span className={`font-semibold ${color}`}>{value}</span>
+    <div
+      className="flex items-center gap-1.5 px-2 py-1 rounded-md flex-shrink-0"
+      style={{
+        background: "var(--bg-raised)",
+        border: "1px solid var(--border)",
+      }}
+    >
+      {icon}
+      <span style={{ color: "var(--text-faint)", fontWeight: 700, letterSpacing: "0.05em" }}>
+        {label}
+      </span>
+      <span style={{ color, fontWeight: 700 }}>{value}</span>
     </div>
   );
 }

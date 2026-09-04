@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X, ImageIcon, Satellite, Layers, HelpCircle } from "lucide-react";
@@ -83,35 +83,36 @@ export default function ImageUpload({
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          {...getRootProps()}
-          className={`
-            relative cursor-pointer rounded-xl border-2 border-dashed
-            transition-all duration-300 p-6
-            ${isDragActive
-              ? "border-satellite-500 bg-satellite-500/5 dropzone-active"
-              : "border-slate-600/50 hover:border-satellite-600/50 hover:bg-slate-800/30"
-            }
+          className={`relative cursor-pointer rounded-xl border-2 border-dashed
+            transition-all duration-300 p-6 ${isDragActive ? "dropzone-active" : ""}
             ${!canAddMore ? "opacity-40 cursor-not-allowed" : ""}
           `}
+          style={{
+            borderColor: isDragActive ? "var(--accent)" : "var(--border-strong)",
+            background: isDragActive ? "var(--accent-soft)" : "transparent",
+          }}
+          {...(getRootProps() as Record<string, unknown>)}
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-600/50">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: "var(--bg-inset)", border: "1px solid var(--border)" }}
+            >
               <Upload
-                className={`w-5 h-5 transition-colors ${
-                  isDragActive ? "text-satellite-400" : "text-slate-400"
-                }`}
+                className="w-5 h-5 transition-colors"
+                style={{ color: isDragActive ? "var(--accent)" : "var(--text-muted)" }}
               />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-300">
+              <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
                 {isDragActive
                   ? "Drop your image here"
                   : images.length === 0
                   ? "Upload satellite image"
                   : "Add second image (for change detection / fusion)"}
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
                 GeoTIFF, TIFF, PNG, JPEG — up to 50 MB
               </p>
             </div>
@@ -120,7 +121,10 @@ export default function ImageUpload({
           {/* Scan line on drag */}
           {isDragActive && (
             <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
-              <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-satellite-400/60 to-transparent animate-scan-line" />
+              <div
+                className="absolute inset-x-0 h-0.5 animate-scan-line"
+                style={{ background: "linear-gradient(to right, transparent, color-mix(in srgb, var(--accent) 65%, transparent), transparent)" }}
+              />
             </div>
           )}
         </motion.div>
@@ -131,12 +135,16 @@ export default function ImageUpload({
         {[".tif", ".tiff", ".png", ".jpg"].map((ext) => (
           <span
             key={ext}
-            className="px-2 py-0.5 rounded text-xs bg-slate-800/60 text-slate-500 border border-slate-700/40 font-mono"
+            className="px-2 py-0.5 rounded text-xs font-mono"
+            style={{ background: "var(--bg-raised)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
           >
             {ext}
           </span>
         ))}
-        <span className="px-2 py-0.5 rounded text-xs bg-slate-800/60 text-slate-500 border border-slate-700/40">
+        <span
+          className="px-2 py-0.5 rounded text-xs"
+          style={{ background: "var(--bg-raised)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+        >
           GeoTIFF supported
         </span>
       </div>
@@ -165,12 +173,16 @@ function ImageCard({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      className="glass-card overflow-hidden"
+      className="sq-card overflow-hidden"
     >
       <div className="flex gap-3 p-3">
         {/* Preview */}
-        <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-slate-800 border border-slate-700/50">
+        <div
+          className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden"
+          style={{ background: "var(--bg-inset)", border: "1px solid var(--border)" }}
+        >
           {image.previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={image.previewUrl}
               alt={image.file.name}
@@ -178,10 +190,13 @@ function ImageCard({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <ImageIcon className="w-8 h-8 text-slate-500" />
+              <ImageIcon className="w-8 h-8" style={{ color: "var(--text-faint)" }} />
             </div>
           )}
-          <div className="absolute top-1 left-1 bg-space-900/80 text-satellite-400 text-xs font-bold px-1.5 rounded">
+          <div
+            className="absolute top-1 left-1 text-xs font-bold px-1.5 rounded"
+            style={{ background: "color-mix(in srgb, var(--bg-base) 82%, transparent)", color: "var(--accent)" }}
+          >
             {index}
           </div>
         </div>
@@ -189,31 +204,34 @@ function ImageCard({
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-slate-200 truncate">{image.file.name}</p>
+            <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{image.file.name}</p>
             <button
               onClick={onRemove}
-              className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-700/60 hover:bg-red-900/50 flex items-center justify-center transition-colors"
+              className="group flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors
+                         hover:bg-[color-mix(in_srgb,var(--danger)_18%,transparent)]"
+              style={{ background: "var(--bg-raised)" }}
+              aria-label="Remove image"
             >
-              <X className="w-3.5 h-3.5 text-slate-400 hover:text-red-400" />
+              <X className="w-3.5 h-3.5 transition-colors group-hover:text-[var(--danger)]" style={{ color: "var(--text-muted)" }} />
             </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {image.uploading ? (
-              <div className="flex items-center gap-1.5 text-xs text-satellite-400">
+              <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--accent)" }}>
                 <div className="flex gap-0.5">
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="w-1 h-1 rounded-full bg-satellite-400 loading-dot"
-                      style={{ animationDelay: `${i * 0.2}s` }}
+                      className="w-1 h-1 rounded-full loading-dot"
+                      style={{ background: "var(--accent)", animationDelay: `${i * 0.2}s` }}
                     />
                   ))}
                 </div>
                 <span>Uploading…</span>
               </div>
             ) : image.error ? (
-              <span className="text-xs text-red-400">{image.error}</span>
+              <span className="text-xs" style={{ color: "var(--danger)" }}>{image.error}</span>
             ) : resp ? (
               <>
                 <span
@@ -224,34 +242,35 @@ function ImageCard({
                 </span>
 
                 {resp.shape?.length >= 2 && (
-                  <span className="text-xs text-slate-500 font-mono">
+                  <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
                     {resp.shape[1]}×{resp.shape[0]}
                   </span>
                 )}
 
                 {resp.bands > 0 && (
-                  <span className="text-xs text-slate-500 font-mono">
+                  <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
                     {resp.bands} band{resp.bands !== 1 ? "s" : ""}
                   </span>
                 )}
 
                 {resp.is_geotiff && (
-                  <span className="px-1.5 py-0.5 rounded text-xs bg-emerald-900/40 text-emerald-400 border border-emerald-700/30">
+                  <span
+                    className="px-1.5 py-0.5 rounded text-xs"
+                    style={{ background: "color-mix(in srgb, var(--veg) 14%, transparent)", color: "var(--veg)", border: "1px solid color-mix(in srgb, var(--veg) 30%, transparent)" }}
+                  >
                     GeoTIFF
                   </span>
                 )}
 
-                <span className="text-xs text-slate-600">
-                  {image.file_size_kb
-                    ? `${(image.file.size / 1024).toFixed(0)} KB`
-                    : `${(image.file.size / 1024).toFixed(0)} KB`}
+                <span className="text-xs" style={{ color: "var(--text-faint)" }}>
+                  {(image.file.size / 1024).toFixed(0)} KB
                 </span>
               </>
             ) : null}
           </div>
 
           {resp?.crs && (
-            <p className="text-xs text-slate-600 mt-1 truncate font-mono">
+            <p className="text-xs mt-1 truncate font-mono" style={{ color: "var(--text-faint)" }}>
               CRS: {resp.crs}
             </p>
           )}

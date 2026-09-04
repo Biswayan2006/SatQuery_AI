@@ -1,67 +1,71 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import AppShell from "@/components/layout/AppShell";
+import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+/* Type system — IBM Plex Sans for everything, IBM Plex Mono for real data only. */
+const plexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-plex-sans",
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  variable: "--font-plex-mono",
+});
 
 export const metadata: Metadata = {
   title: "SatQuery AI — Remote Sensing Intelligence",
   description:
     "Agentic vision-language assistant for multimodal satellite image analysis. VQA, captioning, change detection, and SAR-optical fusion.",
-  keywords: [
-    "satellite imagery",
-    "remote sensing",
-    "AI analysis",
-    "change detection",
-    "SAR",
-    "multispectral",
-    "VQA",
-  ],
+  keywords: ["satellite imagery", "remote sensing", "AI analysis", "change detection", "SAR"],
   authors: [{ name: "SatQuery AI" }],
+  manifest: "/manifest.json",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#050811",
+  themeColor: "#0A0F14",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/* Runs before first paint: applies the persisted (or system) theme so there is
+   no flash of the wrong palette. Kept inline + minified on purpose. */
+const themeScript = `(function(){try{var s=localStorage.getItem('sq-theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=(s==='light'||s==='dark')?s:(m?'dark':'light');var r=document.documentElement;r.setAttribute('data-theme',t);r.style.colorScheme=t;}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="bg-space-950 text-slate-100 antialiased">
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: "#0f1a30",
-              color: "#e2e8f0",
-              border: "1px solid rgba(58,171,255,0.2)",
-              borderRadius: "8px",
-              fontSize: "14px",
-            },
-            success: {
-              iconTheme: { primary: "#22c55e", secondary: "#0f1a30" },
-            },
-            error: {
-              iconTheme: { primary: "#ef4444", secondary: "#0f1a30" },
-            },
-          }}
-        />
-        {children}
+    <html
+      lang="en"
+      className={`${plexSans.variable} ${plexMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeProvider>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border)",
+                borderRadius: "12px",
+                fontSize: "13px",
+                boxShadow: "var(--shadow-lg)",
+              },
+              success: { iconTheme: { primary: "var(--veg)", secondary: "var(--bg-elevated)" } },
+              error: { iconTheme: { primary: "var(--danger)", secondary: "var(--bg-elevated)" } },
+            }}
+          />
+          <AppShell>{children}</AppShell>
+        </ThemeProvider>
       </body>
     </html>
   );
