@@ -33,9 +33,9 @@ const REPORTS = [
 ];
 
 const TASK_COLOR: Record<string, string> = {
-  "Change Detection": "text-amber-400  bg-amber-500/10  border-amber-500/20",
-  "Scene Caption":    "text-sky-400    bg-sky-500/10    border-sky-500/20",
-  "SAR Fusion":       "text-rose-400   bg-rose-500/10   border-rose-500/20",
+  "Change Detection": "change",
+  "Scene Caption":    "water",
+  "SAR Fusion":       "bare",
 };
 
 export default function ReportsPage() {
@@ -44,8 +44,8 @@ export default function ReportsPage() {
   return (
     <div className="max-w-[1400px] mx-auto space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-lg font-bold text-white">Generated Reports</h1>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <h1 className="text-lg font-bold text-ink">Generated Reports</h1>
+        <p className="text-xs text-ink-muted mt-0.5">
           Download and view analysis reports with visual evidence
         </p>
       </div>
@@ -60,11 +60,11 @@ export default function ReportsPage() {
             className="card p-5 flex flex-col sm:flex-row gap-4"
           >
             {/* Thumbnail */}
-            <div className="w-full sm:w-28 h-20 sm:h-28 rounded-xl bg-base border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+            <div className="w-full sm:w-28 h-20 sm:h-28 rounded-xl bg-inset border border-line flex items-center justify-center flex-shrink-0">
               {r.hasMap ? (
-                <Map className="w-8 h-8 text-amber-600" />
+                <Map className="w-8 h-8 text-change" />
               ) : (
-                <FileText className="w-8 h-8 text-sky-700" />
+                <FileText className="w-8 h-8 text-water" />
               )}
             </div>
 
@@ -72,28 +72,37 @@ export default function ReportsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                 <div>
-                  <p className="text-sm font-bold text-gray-100">{r.title}</p>
+                  <p className="text-sm font-bold text-ink">{r.title}</p>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                    <div className="flex items-center gap-1 text-[10px] text-ink-muted">
                       <Calendar className="w-3 h-3" />{r.date}
                     </div>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        TASK_COLOR[r.task] ?? "text-gray-400 bg-elevated border-white/[0.06]"
+                        TASK_COLOR[r.task] ? "" : "text-ink-muted bg-raised border-line"
                       }`}
+                      style={
+                        TASK_COLOR[r.task]
+                          ? {
+                              color: `var(--${TASK_COLOR[r.task]})`,
+                              backgroundColor: `color-mix(in srgb, var(--${TASK_COLOR[r.task]}) 13%, transparent)`,
+                              borderColor: `color-mix(in srgb, var(--${TASK_COLOR[r.task]}) 32%, transparent)`,
+                            }
+                          : undefined
+                      }
                     >
                       {r.task}
                     </span>
                     <div className="flex items-center gap-1 text-[10px]">
-                      <TrendingUp className="w-3 h-3 text-green-400" />
-                      <span className="text-green-400">
+                      <TrendingUp className="w-3 h-3 text-veg" />
+                      <span className="text-veg">
                         {(r.confidence * 100).toFixed(0)}% confidence
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed mb-4 line-clamp-2">
+              <p className="text-xs text-ink-muted leading-relaxed mb-4 line-clamp-2">
                 &ldquo;{r.query}&rdquo;
               </p>
 
@@ -102,19 +111,19 @@ export default function ReportsPage() {
                   href={`${apiBase}/api/report/${r.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/25 text-primary text-xs font-semibold transition-all no-tap"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent-soft hover:bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] border border-accent-border text-accent text-xs font-semibold transition-all no-tap"
                 >
                   <Eye className="w-3.5 h-3.5" />View Online
                 </a>
                 <a
                   href={`${apiBase}/api/report/${r.id}`}
                   download
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-elevated hover:bg-elevated/80 border border-white/[0.06] text-gray-400 hover:text-gray-200 text-xs font-semibold transition-all no-tap"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-raised hover:bg-inset border border-line text-ink-muted hover:text-ink text-xs font-semibold transition-all no-tap"
                 >
                   <Download className="w-3.5 h-3.5" />Download PDF
                 </a>
                 {r.hasMap && (
-                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-elevated hover:bg-elevated/80 border border-white/[0.06] text-gray-400 hover:text-gray-200 text-xs font-semibold transition-all no-tap">
+                  <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-raised hover:bg-inset border border-line text-ink-muted hover:text-ink text-xs font-semibold transition-all no-tap">
                     <Map className="w-3.5 h-3.5" />Download GeoTIFF
                   </button>
                 )}

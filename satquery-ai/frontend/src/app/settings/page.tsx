@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Monitor, Database, Shield, RefreshCw, ToggleLeft, ToggleRight } from "lucide-react";
+import { ThemeSegment } from "@/components/theme/ThemeToggle";
 
 type Tab = "profile" | "application" | "models" | "security";
 
@@ -30,8 +31,8 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-lg font-bold text-white">Settings</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Configure your SatQuery AI environment</p>
+        <h1 className="text-lg font-bold text-ink">Settings</h1>
+        <p className="text-xs text-ink-muted mt-0.5">Configure your SatQuery AI environment</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-5">
@@ -47,8 +48,8 @@ export default function SettingsPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all no-tap text-left w-full ${
                     active
-                      ? "bg-primary text-white"
-                      : "text-gray-500 hover:text-gray-200 hover:bg-elevated/60"
+                      ? "bg-accent text-accent-contrast"
+                      : "text-ink-muted hover:text-ink hover:bg-raised"
                   }`}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
@@ -63,15 +64,22 @@ export default function SettingsPage() {
         <div className="flex-1 card p-6">
           {activeTab === "profile" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <h2 className="text-sm font-bold text-white">Profile</h2>
+              <h2 className="text-sm font-bold text-ink">Profile</h2>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary/30 flex items-center justify-center text-2xl font-bold text-primary">
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold"
+                  style={{
+                    background: "color-mix(in srgb, var(--accent) 16%, transparent)",
+                    border: "2px solid var(--accent-border)",
+                    color: "var(--accent)",
+                  }}
+                >
                   IS
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white">ISRO Scientist</p>
-                  <p className="text-xs text-gray-500">scientist@isro.gov.in</p>
-                  <button className="text-xs text-primary mt-1 hover:underline no-tap">
+                  <p className="text-sm font-bold text-ink">ISRO Scientist</p>
+                  <p className="text-xs text-ink-muted">scientist@isro.gov.in</p>
+                  <button className="text-xs text-accent mt-1 hover:underline no-tap">
                     Change photo
                   </button>
                 </div>
@@ -83,16 +91,16 @@ export default function SettingsPage() {
                 { label: "Email",         value: "scientist@isro.gov.in"     },
               ].map(f => (
                 <div key={f.label}>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  <label className="block text-xs font-semibold text-ink-muted mb-1.5">
                     {f.label}
                   </label>
                   <input
                     defaultValue={f.value}
-                    className="w-full px-3 py-2.5 rounded-xl bg-elevated border border-white/[0.06] text-sm text-gray-200 outline-none focus:border-primary/40 transition-colors"
+                    className="w-full px-3 py-2.5 rounded-xl bg-raised border border-line text-sm text-ink outline-none focus:border-accent-border transition-colors"
                   />
                 </div>
               ))}
-              <button className="px-5 py-2.5 rounded-xl bg-primary hover:bg-blue-600 text-white text-sm font-bold transition-all no-tap">
+              <button className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-accent-contrast text-sm font-bold transition-all no-tap">
                 Save Changes
               </button>
             </motion.div>
@@ -100,22 +108,9 @@ export default function SettingsPage() {
 
           {activeTab === "application" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <h2 className="text-sm font-bold text-white">Application</h2>
+              <h2 className="text-sm font-bold text-ink">Application</h2>
               <SettingRow label="Theme" desc="Application colour theme">
-                <div className="flex gap-2">
-                  {["Dark", "Light", "System"].map(t => (
-                    <button
-                      key={t}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all no-tap ${
-                        t === "Dark"
-                          ? "bg-primary text-white border-primary"
-                          : "text-gray-400 border-white/[0.06] bg-elevated hover:bg-elevated/80"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                <ThemeSegment />
               </SettingRow>
               <SettingRow label="Email Notifications" desc="Receive email on report completion">
                 <Toggle value={emailNotif} onChange={setEmailNotif} />
@@ -131,11 +126,11 @@ export default function SettingsPage() {
 
           {activeTab === "models" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <h2 className="text-sm font-bold text-white">Data Models</h2>
-              <div className="p-3 rounded-xl bg-elevated/40 border border-white/[0.04]">
-                <p className="text-xs font-bold text-primary mb-1">RS Fine-tuning Status</p>
-                <p className="text-xs text-gray-400">Last adapted: Sep 1, 2026 · BigEarthNet v2.0</p>
-                <button className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 mt-2 transition-colors no-tap">
+              <h2 className="text-sm font-bold text-ink">Data Models</h2>
+              <div className="p-3 rounded-xl bg-raised border border-line">
+                <p className="text-xs font-bold text-accent mb-1">RS Fine-tuning Status</p>
+                <p className="text-xs text-ink-muted">Last adapted: Sep 1, 2026, BigEarthNet v2.0</p>
+                <button className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink-soft mt-2 transition-colors no-tap">
                   <RefreshCw className="w-3 h-3" />Re-run fine-tuning
                 </button>
               </div>
@@ -149,11 +144,11 @@ export default function SettingsPage() {
                 ].map(m => (
                   <div
                     key={m.key}
-                    className="flex items-center justify-between p-3 rounded-xl bg-elevated/40 border border-white/[0.04]"
+                    className="flex items-center justify-between p-3 rounded-xl bg-raised border border-line"
                   >
                     <div>
-                      <p className="text-xs font-semibold text-gray-200">{m.label}</p>
-                      <p className="text-[10px] text-gray-600 font-mono">{m.model}</p>
+                      <p className="text-xs font-semibold text-ink">{m.label}</p>
+                      <p className="text-[10px] text-ink-faint font-mono">{m.model}</p>
                     </div>
                     <Toggle
                       value={models[m.key as keyof ModelToggles]}
@@ -167,40 +162,40 @@ export default function SettingsPage() {
 
           {activeTab === "security" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-              <h2 className="text-sm font-bold text-white">Security</h2>
+              <h2 className="text-sm font-bold text-ink">Security</h2>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                <label className="block text-xs font-semibold text-ink-muted mb-1.5">
                   Current Password
                 </label>
                 <input
                   type="password"
-                  className="w-full px-3 py-2.5 rounded-xl bg-elevated border border-white/[0.06] text-sm text-gray-200 outline-none focus:border-primary/40 transition-colors"
+                  className="w-full px-3 py-2.5 rounded-xl bg-raised border border-line text-sm text-ink outline-none focus:border-accent-border transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                <label className="block text-xs font-semibold text-ink-muted mb-1.5">
                   New Password
                 </label>
                 <input
                   type="password"
-                  className="w-full px-3 py-2.5 rounded-xl bg-elevated border border-white/[0.06] text-sm text-gray-200 outline-none focus:border-primary/40 transition-colors"
+                  className="w-full px-3 py-2.5 rounded-xl bg-raised border border-line text-sm text-ink outline-none focus:border-accent-border transition-colors"
                 />
               </div>
-              <div className="p-4 rounded-xl bg-elevated/40 border border-white/[0.04]">
-                <p className="text-xs font-bold text-gray-200 mb-1">API Key</p>
+              <div className="p-4 rounded-xl bg-raised border border-line">
+                <p className="text-xs font-bold text-ink mb-1">API Key</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <code className="flex-1 text-[10px] text-gray-500 font-mono bg-base rounded-lg px-3 py-2 truncate border border-white/[0.04]">
+                  <code className="flex-1 text-[10px] text-ink-muted font-mono bg-inset rounded-lg px-3 py-2 truncate border border-line">
                     sq_live_••••••••••••••••••••••
                   </code>
-                  <button className="px-3 py-2 rounded-lg bg-elevated border border-white/[0.06] text-xs text-gray-400 hover:text-gray-200 transition-colors no-tap">
+                  <button className="px-3 py-2 rounded-lg bg-raised border border-line text-xs text-ink-muted hover:text-ink transition-colors no-tap">
                     Reveal
                   </button>
-                  <button className="px-3 py-2 rounded-lg bg-elevated border border-white/[0.06] text-xs text-gray-400 hover:text-gray-200 transition-colors no-tap">
+                  <button className="px-3 py-2 rounded-lg bg-raised border border-line text-xs text-ink-muted hover:text-ink transition-colors no-tap">
                     Regenerate
                   </button>
                 </div>
               </div>
-              <button className="px-5 py-2.5 rounded-xl bg-primary hover:bg-blue-600 text-white text-sm font-bold transition-all no-tap">
+              <button className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-accent-contrast text-sm font-bold transition-all no-tap">
                 Update Password
               </button>
             </motion.div>
@@ -225,8 +220,8 @@ function SettingRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
-        <p className="text-xs font-semibold text-gray-200">{label}</p>
-        <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
+        <p className="text-xs font-semibold text-ink">{label}</p>
+        <p className="text-[10px] text-ink-muted mt-0.5">{desc}</p>
       </div>
       {children}
     </div>
@@ -237,9 +232,9 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   return (
     <button onClick={() => onChange(!value)} className="flex-shrink-0 no-tap">
       {value ? (
-        <ToggleRight className="w-7 h-7 text-primary" />
+        <ToggleRight className="w-7 h-7 text-accent" />
       ) : (
-        <ToggleLeft className="w-7 h-7 text-gray-600" />
+        <ToggleLeft className="w-7 h-7 text-ink-faint" />
       )}
     </button>
   );
