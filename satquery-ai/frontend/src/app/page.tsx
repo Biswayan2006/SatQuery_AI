@@ -1119,17 +1119,32 @@ function AgenticWorkflowCard({
   );
 }
 
+interface ProjectWorkspaceState {
+  images: UploadedImage[];
+  query: string;
+  result: AnalysisResponse | null;
+  imageRevision: number;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HomePage: main page, all hooks and API logic preserved exactly
 // ─────────────────────────────────────────────────────────────────────────────
 export default function HomePage() {
-  const { activeProject } = useProject();
-  const [images, setImages] = useState<UploadedImage[]>([]);
-  const [query,  setQuery]  = useState("");
+  const { activeProject, projects, workspaces, setWorkspaces } = useProject();
   const [health, setHealth] = useState<HealthResponse | null>(null);
 
-  const { uploadImage }                            = useImageUpload();
-  const { loading, result, error, analyze, reset } = useAnalysis();
+  const { uploadImage }                    = useImageUpload();
+  const { loading, error, analyze, reset } = useAnalysis();
+
+  const currentWorkspace = workspaces[activeProject.id] ?? {
+    images: [],
+    query: "",
+    result: null,
+    imageRevision: 0,
+  };
+  const images = currentWorkspace.images;
+  const query  = currentWorkspace.query;
+  const result = currentWorkspace.result;
 
   /* Health poll: unchanged */
   useEffect(() => {
@@ -1138,46 +1153,107 @@ export default function HomePage() {
     return () => clearInterval(id);
   }, []);
 
-  /* Image upload: identical logic to original */
+  /* Clear / reset analysis hook state whenever activeProject changes */
+  useEffect(() => {
+    reset();
+  }, [activeProject.id, reset]);
+
+  const setQuery = useCallback((newQuery: string) => {
+    setWorkspaces((prev) => ({
+      ...prev,
+      [activeProject.id]: {
+        ...(prev[activeProject.id] ?? { images: [], query: "", result: null, imageRevision: 0 }),
+        query: newQuery,
+      },
+    }));
+  }, [activeProject.id, setWorkspaces]);
+
+  /* Image upload: scoped to active project ID and clears prior analysis result */
   const handleAddImage = useCallback(async (file: File) => {
     const previewUrl = URL.createObjectURL(file);
-    setImages((prev) => [
-      ...prev,
-      { file, previewUrl, uploadResponse: null, uploading: true, error: null },
-    ]);
+    const targetProjId = activeProject.id;
+    const newImage: UploadedImage = {
+      file,
+      previewUrl,
+      uploadResponse: null,
+      uploading: true,
+      error: null,
+    };
+
+    setWorkspaces((prev) => {
+      const ws = prev[targetProjId] ?? { images: [], query: "", result: null, imageRevision: 0 };
+      return {
+        ...prev,
+        [targetProjId]: {
+          ...ws,
+          images: [...ws.images, newImage],
+          result: null,
+          imageRevision: (ws.imageRevision ?? 0) + 1,
+        },
+      };
+    });
+    reset();
+
     try {
       const resp = await uploadImage(file);
-      setImages((prev) =>
-        prev.map((img) =>
-          img.previewUrl === previewUrl
-            ? { ...img, uploading: false, uploadResponse: resp, error: null }
-            : img
-        )
-      );
+      setWorkspaces((prev) => {
+        const ws = prev[targetProjId];
+        if (!ws) return prev;
+        return {
+          ...prev,
+          [targetProjId]: {
+            ...ws,
+            images: ws.images.map((img) =>
+              img.previewUrl === previewUrl
+                ? { ...img, uploading: false, uploadResponse: resp, error: null }
+                : img
+            ),
+          },
+        };
+      });
       if (!resp.valid) toast.error(`Image validation: ${resp.message}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
-      setImages((prev) =>
-        prev.map((img) =>
-          img.previewUrl === previewUrl
-            ? { ...img, uploading: false, error: msg }
-            : img
-        )
-      );
+      setWorkspaces((prev) => {
+        const ws = prev[targetProjId];
+        if (!ws) return prev;
+        return {
+          ...prev,
+          [targetProjId]: {
+            ...ws,
+            images: ws.images.map((img) =>
+              img.previewUrl === previewUrl
+                ? { ...img, uploading: false, error: msg }
+                : img
+            ),
+          },
+        };
+      });
       toast.error(`Upload failed: ${msg}`);
     }
-  }, [uploadImage]);
+  }, [uploadImage, reset, activeProject.id, setWorkspaces]);
 
   const handleRemoveImage = useCallback((index: number) => {
-    setImages((prev) => {
-      const removed = prev[index];
+    const targetProjId = activeProject.id;
+    setWorkspaces((prev) => {
+      const ws = prev[targetProjId];
+      if (!ws) return prev;
+      const removed = ws.images[index];
       if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
-      return prev.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        [targetProjId]: {
+          ...ws,
+          images: ws.images.filter((_, i) => i !== index),
+          result: null,
+          imageRevision: (ws.imageRevision ?? 0) + 1,
+        },
+      };
     });
     reset();
-  }, [reset]);
+  }, [reset, activeProject.id, setWorkspaces]);
 
-  /* Analysis: identical logic to original */
+  /* Analysis: scoped to active project ID and verified against captured imageRevision */
   const handleAnalyze = useCallback(async () => {
     const ready = images.filter(
       (img) => img.uploadResponse?.valid && img.uploadResponse.image_id
@@ -1186,8 +1262,31 @@ export default function HomePage() {
       toast.error("Upload at least one valid image first.");
       return;
     }
-    await analyze(ready.map((img) => img.uploadResponse!.image_id), query);
-  }, [images, query, analyze]);
+    const targetProjId = activeProject.id;
+    const capturedRevision = currentWorkspace.imageRevision ?? 0;
+
+    const res = await analyze(ready.map((img) => img.uploadResponse!.image_id), query);
+    if (res) {
+      setWorkspaces((prev) => {
+        // Ensure pending analysis result writes verify the project ID still exists before updating workspace state
+        if (!projects.some((p) => p.id === targetProjId)) {
+          return prev;
+        }
+        const ws = prev[targetProjId];
+        // Only store if the image revision still matches what was captured before analyze started
+        if (!ws || (ws.imageRevision ?? 0) !== capturedRevision) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [targetProjId]: {
+            ...ws,
+            result: res,
+          },
+        };
+      });
+    }
+  }, [images, query, analyze, activeProject.id, projects, currentWorkspace.imageRevision, setWorkspaces]);
 
   const hasReadyImages = images.some((img) => img.uploadResponse?.valid);
 

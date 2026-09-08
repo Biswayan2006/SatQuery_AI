@@ -134,7 +134,7 @@ export default function NotificationsPopover() {
       {/* Popover Card */}
       {open && (
         <div
-          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col animate-fade-in"
+          className="fixed sm:absolute inset-x-3 sm:inset-auto sm:right-0 top-16 sm:top-auto sm:mt-2 w-auto sm:w-96 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col animate-fade-in"
           style={{
             background: "var(--bg-elevated)",
             border: "1px solid var(--border)",

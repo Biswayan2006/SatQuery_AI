@@ -69,12 +69,20 @@ export default function Header() {
         {/* User avatar linking to settings */}
         <Link
           href="/settings"
-          className="flex items-center justify-center w-10 h-10 rounded-full no-tap hover:opacity-90 transition-opacity"
+          className="relative flex items-center justify-center w-10 h-10 rounded-full no-tap hover:opacity-90 transition-opacity"
           style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
           aria-label="Account Settings"
-          title="Account settings"
+          title="Account settings (Online)"
         >
           <User className="w-5 h-5" style={{ color: "var(--accent)" }} />
+          <span
+            className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2"
+            style={{
+              background: "var(--veg)",
+              boxShadow: "0 0 6px var(--veg)",
+              borderColor: "var(--bg-base)",
+            }}
+          />
         </Link>
       </div>
     </header>

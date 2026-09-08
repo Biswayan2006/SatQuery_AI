@@ -1,6 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import type { UploadedImage, AnalysisResponse } from "@/types";
+
+export interface ProjectWorkspaceState {
+  images: UploadedImage[];
+  query: string;
+  result: AnalysisResponse | null;
+  imageRevision: number;
+}
 
 export interface Project {
   id: string;
@@ -56,15 +64,35 @@ interface ProjectContextType {
   activeProject: Project;
   setActiveProjectId: (id: string) => void;
   createProject: (name: string, modality: string, sensor: string, description?: string) => void;
+  deleteProject: (id: string) => void;
+  workspaces: Record<string, ProjectWorkspaceState>;
+  setWorkspaces: React.Dispatch<React.SetStateAction<Record<string, ProjectWorkspaceState>>>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 const STORAGE_KEY = "sq-active-project-id";
+const PROJECTS_STORAGE_KEY = "sq-projects-list";
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>(DEFAULT_PROJECTS);
+  const [workspaces, setWorkspaces] = useState<Record<string, ProjectWorkspaceState>>({});
   const [activeProjectId, setActiveProjectIdState] = useState<string>("urban-watch");
+
+  // Load saved projects list on mount if available
+  useEffect(() => {
+    try {
+      const savedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+      if (savedProjects) {
+        const parsed = JSON.parse(savedProjects);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProjects(parsed);
+        }
+      }
+    } catch {
+      // localStorage unavailable or restricted
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -87,7 +115,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createProject = (name: string, modality: string, sensor: string, description?: string) => {
-    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || `project-${Date.now()}`;
+    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const id = baseSlug ? `${baseSlug}-${Date.now()}` : `project-${Date.now()}`;
     const newProj: Project = {
       id,
       name,
@@ -97,8 +126,48 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       scenes: 0,
       lastActive: "Just now",
     };
-    setProjects((prev) => [newProj, ...prev]);
+    const updated = [newProj, ...projects];
+    setProjects(updated);
+    try {
+      localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
     setActiveProjectId(id);
+  };
+
+  const deleteProject = (id: string) => {
+    if (projects.length <= 1) return;
+
+    // Remove deleted project's workspace from shared workspace owner and revoke preview URLs
+    setWorkspaces((prev) => {
+      const targetWs = prev[id];
+      if (targetWs) {
+        targetWs.images.forEach((img) => {
+          if (img.previewUrl) {
+            try {
+              URL.revokeObjectURL(img.previewUrl);
+            } catch {
+              // ignore
+            }
+          }
+        });
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    try {
+      localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(remaining));
+    } catch {
+      // ignore
+    }
+    if (activeProjectId === id && remaining.length > 0) {
+      setActiveProjectId(remaining[0].id);
+    }
   };
 
   const activeProject =
@@ -111,6 +180,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         activeProject,
         setActiveProjectId,
         createProject,
+        deleteProject,
+        workspaces,
+        setWorkspaces,
       }}
     >
       {children}

@@ -51,9 +51,9 @@
     --border-strong: rgba(168, 138, 112, 0.45);
 
     /* Interactive accent: deep steel blue */
-    --accent:          #518DB2;
-    --accent-hover:    color-mix(in srgb, #518DB2 85%, #1C1F20 15%);
-    --accent-active:   color-mix(in srgb, #518DB2 70%, #1C1F20 30%);
+    --accent:          #3D7396;
+    --accent-hover:    color-mix(in srgb, #3D7396 85%, #1C1F20 15%);
+    --accent-active:   color-mix(in srgb, #3D7396 70%, #1C1F20 30%);
     --accent-contrast: #FFFFFF;
     --accent-soft:     color-mix(in srgb, var(--accent) 12%, transparent);
     --accent-border:   color-mix(in srgb, var(--accent) 30%, transparent);

@@ -91,30 +91,52 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ── Bottom map accent + user row ─────────────────────────────────── */}
+      {/* ── Bottom user row with online status ─────────────────────────── */}
       <div className="sidebar-bottom-map flex-shrink-0 relative">
-        {/* Live status dot (vegetation-green = operational) */}
-        <span
-          className="absolute left-5 bottom-[72px] w-2 h-2 rounded-full z-10"
-          style={{ background: "var(--veg)", boxShadow: "0 0 8px var(--veg)" }}
-        />
-
         <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-          <button className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-raised transition-colors no-tap">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
-            >
-              <User className="w-4 h-4" style={{ color: "var(--accent)" }} />
+          <Link
+            href="/settings"
+            className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-raised transition-colors no-tap block"
+          >
+            {/* Avatar with attached online status dot */}
+            <div className="relative flex-shrink-0">
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
+              >
+                <User className="w-4 h-4" style={{ color: "var(--accent)" }} />
+              </div>
+              <span
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2"
+                style={{
+                  background: "var(--veg)",
+                  boxShadow: "0 0 6px var(--veg)",
+                  borderColor: "var(--bg-base)",
+                }}
+                title="Online"
+              />
             </div>
             <div className="flex-1 min-w-0 text-left leading-tight">
-              <p className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>User</p>
-              <p className="text-sm font-semibold -mt-px truncate" style={{ color: "var(--text-secondary)" }}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>User</span>
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                  style={{
+                    background: "var(--veg-soft)",
+                    color: "var(--veg)",
+                    border: "1px solid color-mix(in srgb, var(--veg) 30%, transparent)",
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--veg)" }} />
+                  Online
+                </span>
+              </div>
+              <p className="text-sm font-semibold mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
                 ISRO Scientist
               </p>
             </div>
             <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-          </button>
+          </Link>
         </div>
       </div>
     </aside>

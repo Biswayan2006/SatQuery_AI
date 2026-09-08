@@ -1,17 +1,24 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Folder, ChevronDown, Check, Plus, Layers, X } from "lucide-react";
-import { useProject } from "@/context/ProjectContext";
+import { createPortal } from "react-dom";
+import { Folder, ChevronDown, Check, Plus, Layers, X, Trash2 } from "lucide-react";
+import { useProject, Project } from "@/context/ProjectContext";
 
 export default function ProjectSelector() {
-  const { projects, activeProject, setActiveProjectId, createProject } = useProject();
+  const { projects, activeProject, setActiveProjectId, createProject, deleteProject } = useProject();
   const [open, setOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [mounted, setMounted] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newModality, setNewModality] = useState("Optical");
   const [newSensor, setNewSensor] = useState("Sentinel-2");
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
@@ -75,17 +82,17 @@ export default function ProjectSelector() {
             {projects.map((proj) => {
               const isSelected = proj.id === activeProject.id;
               return (
-                <button
+                <div
                   key={proj.id}
-                  onClick={() => {
-                    setActiveProjectId(proj.id);
-                    setOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-left text-xs transition-colors no-tap ${
+                  className={`group w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-left text-xs transition-colors no-tap cursor-pointer ${
                     isSelected
                       ? "bg-accent text-accent-contrast font-semibold"
                       : "hover:bg-raised text-ink-soft hover:text-ink"
                   }`}
+                  onClick={() => {
+                    setActiveProjectId(proj.id);
+                    setOpen(false);
+                  }}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate leading-snug">{proj.name}</p>
@@ -98,8 +105,29 @@ export default function ProjectSelector() {
                       {proj.sensor} ({proj.modality})
                     </p>
                   </div>
-                  {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                </button>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                    {projects.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(proj);
+                          setOpen(false);
+                        }}
+                        className={`p-1 rounded transition-opacity ${
+                          isSelected
+                            ? "hover:bg-white/20 text-white/80 hover:text-white"
+                            : "opacity-0 group-hover:opacity-100 hover:bg-raised text-ink-faint hover:text-danger"
+                        }`}
+                        title={`Delete ${proj.name}`}
+                        aria-label={`Delete ${proj.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -122,122 +150,183 @@ export default function ProjectSelector() {
         </div>
       )}
 
-      {/* New Project Modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
-          style={{ background: "var(--overlay)" }}
-          onClick={() => setShowModal(false)}
-        >
+      {/* Delete Confirmation Modal */}
+      {mounted &&
+        projectToDelete &&
+        createPortal(
           <div
-            className="w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4"
-            style={{
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border)",
-            }}
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
+            style={{ background: "var(--overlay)" }}
+            onClick={() => setProjectToDelete(null)}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Folder className="w-5 h-5 text-accent" />
-                <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Create New Project
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1 rounded-lg hover:bg-raised text-ink-muted transition-colors no-tap"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreate} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                  Project Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Coastal Mangrove Survey"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-colors"
-                  style={{
-                    background: "var(--bg-surface)",
-                    border: "1px solid var(--border)",
-                    color: "var(--text-primary)",
-                  }}
-                  autoFocus
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                    Primary Modality
-                  </label>
-                  <select
-                    value={newModality}
-                    onChange={(e) => setNewModality(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-xs outline-none"
-                    style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <option value="Optical">Optical (RGB)</option>
-                    <option value="SAR">SAR (Radar)</option>
-                    <option value="Multispectral">Multispectral</option>
-                    <option value="SAR + Optical">SAR + Optical Fusion</option>
-                  </select>
+            <div
+              className="w-full max-w-sm rounded-xl p-5 shadow-2xl space-y-4"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: "color-mix(in srgb, var(--danger) 15%, transparent)" }}
+                >
+                  <Trash2 className="w-5 h-5 text-danger" />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                    Sensor Constellation
-                  </label>
-                  <select
-                    value={newSensor}
-                    onChange={(e) => setNewSensor(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-xs outline-none"
-                    style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    <option value="Sentinel-2">Sentinel-2 (MSI)</option>
-                    <option value="Sentinel-1">Sentinel-1 (C-band SAR)</option>
-                    <option value="Landsat-8/9">Landsat-8/9 (OLI/TIRS)</option>
-                    <option value="Cartosat-3">Cartosat-3 (High-res)</option>
-                    <option value="RISAT-1A">RISAT-1A (C-band SAR)</option>
-                  </select>
+                  <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                    Delete Project
+                  </h3>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Delete project <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{projectToDelete.name}</span>? This action cannot be undone.
+                  </p>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => setProjectToDelete(null)}
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold text-ink-muted hover:text-ink hover:bg-raised transition-colors no-tap"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-accent text-accent-contrast hover:bg-accent-hover transition-colors no-tap"
+                  type="button"
+                  onClick={() => {
+                    deleteProject(projectToDelete.id);
+                    setProjectToDelete(null);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-danger text-white hover:opacity-90 transition-opacity no-tap"
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  Create Project
+                  Delete Project
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* New Project Modal rendered via portal */}
+      {mounted &&
+        showModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
+            style={{ background: "var(--overlay)" }}
+            onClick={() => setShowModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4"
+              style={{
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Folder className="w-5 h-5 text-accent" />
+                  <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+                    Create New Project
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="p-1 rounded-lg hover:bg-raised text-ink-muted transition-colors no-tap"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreate} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Coastal Mangrove Survey"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-colors"
+                    style={{
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                      Primary Modality
+                    </label>
+                    <select
+                      value={newModality}
+                      onChange={(e) => setNewModality(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-xs outline-none"
+                      style={{
+                        background: "var(--bg-surface)",
+                        border: "1px solid var(--border)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <option value="Optical">Optical (RGB)</option>
+                      <option value="SAR">SAR (Radar)</option>
+                      <option value="Multispectral">Multispectral</option>
+                      <option value="SAR + Optical">SAR + Optical Fusion</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                      Sensor Constellation
+                    </label>
+                    <select
+                      value={newSensor}
+                      onChange={(e) => setNewSensor(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-xs outline-none"
+                      style={{
+                        background: "var(--bg-surface)",
+                        border: "1px solid var(--border)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <option value="Sentinel-2">Sentinel-2 (MSI)</option>
+                      <option value="Sentinel-1">Sentinel-1 (C-band SAR)</option>
+                      <option value="Landsat-8/9">Landsat-8/9 (OLI/TIRS)</option>
+                      <option value="Cartosat-3">Cartosat-3 (High-res)</option>
+                      <option value="RISAT-1A">RISAT-1A (C-band SAR)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-ink-muted hover:text-ink hover:bg-raised transition-colors no-tap"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-accent text-accent-contrast hover:bg-accent-hover transition-colors no-tap"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Create Project
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
