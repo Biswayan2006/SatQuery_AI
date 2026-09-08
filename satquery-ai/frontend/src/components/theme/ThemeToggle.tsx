@@ -5,7 +5,7 @@ import { Sun, Moon, Monitor } from "lucide-react";
 import { useTheme, useMounted, type ThemePref } from "./ThemeProvider";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   ThemeToggle — compact sun/moon button for the app chrome.
+   ThemeToggle: compact sun/moon button for the app chrome.
    Clicking sets an explicit light/dark override; a small dot marks when the
    app is still following the system preference.
    ────────────────────────────────────────────────────────────────────────── */
@@ -35,8 +35,8 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
       title={
         followingSystem
-          ? `Following system (${resolvedTheme}) — click to override`
-          : `Theme: ${resolvedTheme} — click to switch`
+          ? `Following system (${resolvedTheme}): click to override`
+          : `Theme: ${resolvedTheme}: click to switch`
       }
     >
       <AnimatePresence mode="wait" initial={false}>
@@ -64,7 +64,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   ThemeSegment — full System / Light / Dark control (for the Settings page).
+   ThemeSegment: full System / Light / Dark control (for the Settings page).
    ────────────────────────────────────────────────────────────────────────── */
 const SEGMENTS: { value: ThemePref; label: string; Icon: typeof Sun }[] = [
   { value: "system", label: "System", Icon: Monitor },

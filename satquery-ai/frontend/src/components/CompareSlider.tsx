@@ -85,12 +85,12 @@ export default function CompareSlider({
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center"
           style={{
-            background: "rgba(255,255,255,0.92)",
+            background: "var(--bg-surface)",
             border: "2px solid color-mix(in srgb, var(--accent) 65%, transparent)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.2)",
+            boxShadow: "var(--shadow-md)",
           }}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: "#161B22" }} />
+          <SlidersHorizontal className="w-3.5 h-3.5" style={{ color: "var(--text-primary)" }} />
         </div>
       </div>
 
@@ -98,8 +98,8 @@ export default function CompareSlider({
       <span
         className="absolute top-2 left-3 text-[10px] font-bold rounded-full"
         style={{
-          color: "#fff",
-          background: "rgba(0,0,0,0.55)",
+          color: "var(--accent-contrast)",
+          background: "var(--overlay)",
           backdropFilter: "blur(4px)",
           padding: "2px 8px",
         }}
@@ -109,8 +109,8 @@ export default function CompareSlider({
       <span
         className="absolute top-2 right-3 text-[10px] font-bold rounded-full"
         style={{
-          color: "#fff",
-          background: "rgba(0,0,0,0.55)",
+          color: "var(--accent-contrast)",
+          background: "var(--overlay)",
           backdropFilter: "blur(4px)",
           padding: "2px 8px",
         }}

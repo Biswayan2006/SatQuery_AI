@@ -11,15 +11,17 @@ import {
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 
-// ── Existing components — all unchanged ──────────────────────────────────
+// ── Existing components: all unchanged ──────────────────────────────────
 import ImageUpload    from "@/components/ImageUpload";
 import ResultDisplay  from "@/components/ResultDisplay";
 import ExecutionTrace from "@/components/ExecutionTrace";
 import ChangeMap      from "@/components/ChangeMap";
 import CompareSlider  from "@/components/CompareSlider";
 import ModelStatus    from "@/components/ModelStatus";
+import ProjectTabs    from "@/components/layout/ProjectTabs";
+import { useProject } from "@/context/ProjectContext";
 
-// GlobeScene uses canvas — only render client-side
+// GlobeScene uses canvas: only render client-side
 const GlobeScene = dynamic(() => import("@/components/GlobeScene"), { ssr: false });
 
 // ── Existing hooks / types ────────────────────────────────────────────────
@@ -27,7 +29,7 @@ import { useImageUpload, useAnalysis, checkHealth, useReportDownload } from "@/h
 import type { UploadedImage, HealthResponse, AnalysisResponse } from "@/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DashCard — shared card shell
+// DashCard: shared card shell
 // ─────────────────────────────────────────────────────────────────────────────
 function DashCard({
   title,
@@ -59,7 +61,7 @@ function DashCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CommandBar — top query bar with focus-triggered example query suggestions
+// CommandBar: top query bar with focus-triggered example query suggestions
 // ─────────────────────────────────────────────────────────────────────────────
 const EXAMPLE_QUERIES = [
   "Describe the land cover types",
@@ -186,7 +188,7 @@ function CommandBar({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ImageSlot — compact preview tile for an uploaded image.
+// ImageSlot: compact preview tile for an uploaded image.
 // `tint` color-codes the slot by modality (optical=water, SAR=amber, output=accent).
 // ─────────────────────────────────────────────────────────────────────────────
 function ImageSlot({
@@ -263,7 +265,7 @@ function ImageSlot({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ProcessingStatus — animated agent status line
+// ProcessingStatus: animated agent status line
 // ─────────────────────────────────────────────────────────────────────────────
 function ProcessingStatus({
   loading, result, execTimeMs,
@@ -308,7 +310,7 @@ function ProcessingStatus({
           <>
             <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--veg)" }} />
             <span className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
-              Analysis complete —{" "}
+              Analysis complete:{" "}
               <span className="font-medium" style={{ color: "var(--text-secondary)" }}>
                 {result.task.replace(/_/g, " ")}
               </span>
@@ -333,7 +335,7 @@ function ProcessingStatus({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RealtimeCard — Phase 3: state-aware visualization panel
+// RealtimeCard: state-aware visualization panel
 // ─────────────────────────────────────────────────────────────────────────────
 function RealtimeCard({
   images, result, loading,
@@ -360,7 +362,7 @@ function RealtimeCard({
         : `${r.file_size_kb.toFixed(0)} KB`
       : null;
     const parts: string[] = [];
-    parts.push(`${r.modality}·${r.bands}b`);
+    parts.push(`${r.modality}, ${r.bands}b`);
     if (size) parts.push(size);
     if (r.is_geotiff) parts.push("GeoTIFF");
     return parts.join("  ");
@@ -390,8 +392,8 @@ function RealtimeCard({
       <span className="relative">
         <span className="w-2 h-2 rounded-full block animate-pulse" style={{ background: "var(--veg)" }} />
       </span>
-      <span className="text-[11px] font-bold tracking-widest" style={{ color: "var(--veg)" }}>
-        LIVE
+      <span className="text-[11px] font-semibold" style={{ color: "var(--veg)" }}>
+        Live
       </span>
       <ChevronUp className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
     </div>
@@ -404,7 +406,7 @@ function RealtimeCard({
         {/* ── Main visualization area ─────────────────────────────────── */}
         <div className={`flex-1 relative ${loading ? "scan-container" : ""}`}>
 
-          {/* NO IMAGES — Globe + empty state */}
+          {/* NO IMAGES: Globe + empty state */}
           {!hasImages && !loading && (
             <div className="relative h-full min-h-[220px]">
               <div className="absolute inset-0">
@@ -429,7 +431,7 @@ function RealtimeCard({
             </div>
           )}
 
-          {/* COMPARE MODE — change_map result + 2 images */}
+          {/* COMPARE MODE: change_map result + 2 images */}
           {showCompare && (
             <div className="p-4 space-y-3">
               <div>
@@ -451,7 +453,7 @@ function RealtimeCard({
             </div>
           )}
 
-          {/* STANDARD MODE — image slots grid */}
+          {/* STANDARD MODE: image slots grid */}
           {(hasImages || loading) && !showCompare && (
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-3 gap-2.5">
@@ -540,7 +542,7 @@ function RealtimeCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AnalyzeDataCard — wraps ImageUpload unchanged
+// AnalyzeDataCard: wraps ImageUpload unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 function AnalyzeDataCard({
   images, onAddImage, onRemoveImage,
@@ -567,7 +569,7 @@ function AnalyzeDataCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// InsightsCard — ResultDisplay + ExecutionTrace + ReportDownload
+// InsightsCard: ResultDisplay + ExecutionTrace + ReportDownload
 // ─────────────────────────────────────────────────────────────────────────────
 function InsightsCard({
   result, loading, error,
@@ -654,7 +656,7 @@ function InsightsCard({
                 Running satellite analysis
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                Classifying task · Selecting specialist models · Executing pipeline
+                Classifying task, selecting specialist models, executing pipeline
               </p>
             </div>
           </div>
@@ -683,12 +685,12 @@ function InsightsCard({
           </div>
         )}
 
-        {/* Results — refactored sections */}
+        {/* Results: evidence sections */}
         {result && !loading && (
           <>
             <ResultDisplay result={result} />
 
-            {/* Audit trail — ExecutionTrace */}
+            {/* Audit trail: ExecutionTrace */}
             <AnimatePresence>
               {auditOpen && (
                 <motion.div
@@ -703,7 +705,7 @@ function InsightsCard({
               )}
             </AnimatePresence>
 
-            {/* Report download row — inline report info */}
+            {/* Report download row: inline report info */}
             <div
               className="flex items-center justify-between flex-wrap gap-3 p-2.5 rounded-lg"
               style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
@@ -724,12 +726,12 @@ function InsightsCard({
                     style={{ color: "var(--text-muted)" }}
                     title={result.session_id}
                   >
-                    session {result.session_id.slice(0, 12)}… · {result.task.replace(/_/g, " ")} · {(result.execution_summary.processing_time_ms / 1000).toFixed(1)}s
+                    session {result.session_id.slice(0, 12)}… | {result.task.replace(/_/g, " ")} | {(result.execution_summary.processing_time_ms / 1000).toFixed(1)}s
                   </p>
                 </div>
               </div>
               <button
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-colors no-tap"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors no-tap"
                 style={{
                   background: downloading ? "var(--bg-raised)" : "var(--accent)",
                   border: `1px solid ${downloading ? "var(--border)" : "var(--accent)"}`,
@@ -773,7 +775,7 @@ function InsightsCard({
             >
               <Search className="w-3 h-3" style={{ color: "var(--text-faint)" }} />
               <span className="text-[10px] font-mono" style={{ color: "var(--text-muted)" }}>
-                supports VQA · Caption · Grounding · Change Det. · SAR Fusion
+                Supports VQA, Captioning, Grounding, Change Detection, and SAR Fusion
               </span>
             </div>
           </div>
@@ -790,8 +792,8 @@ function useReportDownloadHookWrapper() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WorkflowSteps — maps real ExecutionSummary to a compact timeline.
-// This IS a genuine sequence (classify → select → execute → integrate), so the
+// WorkflowSteps: maps real ExecutionSummary to a compact timeline.
+// This IS a genuine sequence (classify, select, execute, integrate), so the
 // stepped-timeline treatment is warranted. Each stage owns a data-palette hue.
 // ─────────────────────────────────────────────────────────────────────────────
 type StepStatus = "pending" | "active" | "completed" | "failed";
@@ -1009,7 +1011,7 @@ function buildWorkflowNodes(
     return [
       {
         id: "c", label: "Task Classification", status: "completed", icon: iconClassify,
-        detail: `${es.selected_task.replace(/_/g, " ")} · ${(es.task_confidence * 100).toFixed(0)}% confidence`,
+        detail: `${es.selected_task.replace(/_/g, " ")} (${(es.task_confidence * 100).toFixed(0)}% confidence)`,
         pills: [{ text: es.selected_task, color: "var(--accent)" }],
       },
       {
@@ -1036,7 +1038,7 @@ function buildWorkflowNodes(
             label: "Task Classification",
             status: "completed" as StepStatus,
             icon: iconClassify,
-            detail: `${result.execution_summary.selected_task.replace(/_/g, " ")} · ${(result.execution_summary.task_confidence * 100).toFixed(0)}% confidence`,
+            detail: `${result.execution_summary.selected_task.replace(/_/g, " ")} (${(result.execution_summary.task_confidence * 100).toFixed(0)}% confidence)`,
             pills: [{ text: result.execution_summary.selected_task, color: "var(--accent)" }],
           }
         : {
@@ -1066,7 +1068,7 @@ function buildWorkflowNodes(
         label: "Execution Steps",
         status: "failed",
         icon: iconExecute,
-        detail: error ?? "Execution aborted — see console or server logs for details",
+        detail: error ?? "Execution aborted: see console or server logs for details",
       },
       { id: "i", label: "Output Integration", status: "pending", icon: iconIntegrate },
     ];
@@ -1095,7 +1097,7 @@ function buildWorkflowNodes(
     },
     {
       id: "i", label: "Output Integration", status: "completed", icon: iconIntegrate,
-      detail: `Response validated · evidence-grounded · ${result!.session_id.slice(0, 10)}`,
+      detail: `Response validated, evidence-grounded, ${result!.session_id.slice(0, 10)}`,
       pills: [
         { text: `Conf ${(result!.confidence * 100).toFixed(0)}%`, color: result!.confidence >= 0.7 ? "var(--veg)" : result!.confidence >= 0.4 ? "var(--warning)" : "var(--danger)" },
       ],
@@ -1118,9 +1120,10 @@ function AgenticWorkflowCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HomePage — main page, all hooks and API logic preserved exactly
+// HomePage: main page, all hooks and API logic preserved exactly
 // ─────────────────────────────────────────────────────────────────────────────
 export default function HomePage() {
+  const { activeProject } = useProject();
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [query,  setQuery]  = useState("");
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -1128,14 +1131,14 @@ export default function HomePage() {
   const { uploadImage }                            = useImageUpload();
   const { loading, result, error, analyze, reset } = useAnalysis();
 
-  /* Health poll — unchanged */
+  /* Health poll: unchanged */
   useEffect(() => {
     checkHealth().then(setHealth);
     const id = setInterval(() => checkHealth().then(setHealth), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  /* Image upload — identical logic to original */
+  /* Image upload: identical logic to original */
   const handleAddImage = useCallback(async (file: File) => {
     const previewUrl = URL.createObjectURL(file);
     setImages((prev) => [
@@ -1174,7 +1177,7 @@ export default function HomePage() {
     reset();
   }, [reset]);
 
-  /* Analysis — identical logic to original */
+  /* Analysis: identical logic to original */
   const handleAnalyze = useCallback(async () => {
     const ready = images.filter(
       (img) => img.uploadResponse?.valid && img.uploadResponse.image_id
@@ -1202,9 +1205,32 @@ export default function HomePage() {
           }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse flex-shrink-0" />
-          AI models loading — 0/5 ready. Responses will be mocked until models finish loading.
+          AI models loading: 0/5 ready. Responses will be mocked until models finish loading.
         </div>
       )}
+
+      {/* ── Active project workspace & project tabs ──────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            Active project:
+          </span>
+          <span className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>
+            {activeProject.name}
+          </span>
+          <span
+            className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+            style={{
+              background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+              color: "var(--accent)",
+              border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+            }}
+          >
+            {activeProject.sensor} ({activeProject.modality})
+          </span>
+        </div>
+        <ProjectTabs />
+      </div>
 
       {/* ── 1. Command bar ────────────────────────────────────────────── */}
       <CommandBar

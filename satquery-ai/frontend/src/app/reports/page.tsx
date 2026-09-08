@@ -35,11 +35,11 @@ const REPORTS = [
 const TASK_COLOR: Record<string, string> = {
   "Change Detection": "change",
   "Scene Caption":    "water",
-  "SAR Fusion":       "bare",
+  "SAR Fusion":       "sar",
 };
 
 export default function ReportsPage() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-5 animate-fade-in">

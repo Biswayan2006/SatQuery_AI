@@ -11,6 +11,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
+import ProjectSelector from "@/components/layout/ProjectSelector";
 
 /* ── Navigation items ───────────────────────────────────────────────────── */
 const NAV_ITEMS = [
@@ -61,17 +62,7 @@ export default function Sidebar() {
         <p className="text-xs font-medium mb-2 px-1" style={{ color: "var(--text-muted)" }}>
           Project
         </p>
-        <button
-          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg
-                     text-sm font-medium transition-colors duration-150 hover:bg-raised no-tap"
-          style={{ border: "1px solid var(--border)", background: "var(--bg-raised)", color: "var(--text-secondary)" }}
-        >
-          <span className="flex items-center gap-2">
-            <Folder className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-            <span>Urban Watch</span>
-          </span>
-          <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-        </button>
+        <ProjectSelector />
       </div>
 
       {/* ── Navigation ───────────────────────────────────────────────────── */}
@@ -130,7 +121,7 @@ export default function Sidebar() {
   );
 }
 
-/* ── Satellite SVG icon (inline — avoids import conflicts) ───────────────── */
+/* ── Satellite SVG icon (inline: avoids import conflicts) ───────────────── */
 function SatelliteIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
   return (
     <svg

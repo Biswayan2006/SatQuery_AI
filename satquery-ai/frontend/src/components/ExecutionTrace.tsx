@@ -41,7 +41,7 @@ export default function ExecutionTrace({ summary, defaultOpen = false }: Props) 
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <Terminal className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--accent)" }} />
           <span className="text-xs font-semibold truncate" style={{ color: "var(--text-secondary)" }}>
-            Audit trail — execution log
+            Audit trail: execution log
           </span>
           <span
             className="text-[10px] font-mono flex-shrink-0 px-1.5 py-0.5 rounded"
@@ -199,7 +199,7 @@ function buildTraceLines(summary: ExecutionSummary): TraceLine[] {
   summary.models_used.forEach((model) => {
     lines.push({
       type: "success",
-      text: `[MODEL] ${model} — inference complete`,
+      text: `[MODEL] ${model}: inference complete`,
       color: "var(--veg)",
       textColor: "var(--text-secondary)",
     });
@@ -207,7 +207,7 @@ function buildTraceLines(summary: ExecutionSummary): TraceLine[] {
 
   lines.push({
     type: "success",
-    text: `[DONE] total=${summary.processing_time_ms.toFixed(1)} ms · steps=${summary.steps.length} · models=${summary.models_used.length}`,
+    text: `[DONE] total=${summary.processing_time_ms.toFixed(1)} ms, steps=${summary.steps.length}, models=${summary.models_used.length}`,
     color: "var(--veg)",
     textColor: "var(--text-primary)",
   });

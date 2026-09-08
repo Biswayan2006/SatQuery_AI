@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Bell, User } from "lucide-react";
+import { Search, User } from "lucide-react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
+import NotificationsPopover from "@/components/layout/NotificationsPopover";
+import ProjectTabs from "@/components/layout/ProjectTabs";
 
 const PAGE_TITLES: Record<string, string> = {
   "/":         "SatQuery AI: Interactive Vision-Language Assistant",
@@ -27,20 +30,27 @@ export default function Header() {
         WebkitBackdropFilter: "blur(12px)",
       }}
     >
-      {/* Page title */}
-      <h1
-        className="text-[17px] font-semibold truncate pr-6 leading-none"
-        style={{ color: "var(--text-primary)" }}
-      >
-        {title}
-      </h1>
+      {/* Page title and project tabs */}
+      <div className="flex items-center gap-4 min-w-0 pr-4">
+        <h1
+          className="text-[17px] font-semibold truncate leading-none"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {title}
+        </h1>
+
+        {/* Project tabs: quick switching */}
+        <div className="hidden xl:flex items-center pl-3 border-l border-line">
+          <ProjectTabs compact />
+        </div>
+      </div>
 
       {/* Right controls */}
       <div className="flex items-center gap-3 flex-shrink-0">
         {/* Global search */}
         <div
           className="hidden lg:flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg h-10"
-          style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: "260px" }}
+          style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: "220px" }}
         >
           <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
           <input
@@ -53,28 +63,19 @@ export default function Header() {
         {/* Theme toggle */}
         <ThemeToggle />
 
-        {/* Notifications */}
-        <button
-          className="relative flex items-center justify-center w-10 h-10 rounded-lg
-                     text-ink-muted hover:text-ink hover:bg-raised transition-colors no-tap"
-          style={{ border: "1px solid var(--border)" }}
-          aria-label="Notifications"
-        >
-          <Bell className="w-[18px] h-[18px]" />
-          <span
-            className="absolute top-2 right-2 w-2 h-2 rounded-full"
-            style={{ background: "var(--accent)" }}
-          />
-        </button>
+        {/* Notifications Popover */}
+        <NotificationsPopover />
 
-        {/* User avatar */}
-        <button
+        {/* User avatar linking to settings */}
+        <Link
+          href="/settings"
           className="flex items-center justify-center w-10 h-10 rounded-full no-tap hover:opacity-90 transition-opacity"
           style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
-          aria-label="Account"
+          aria-label="Account Settings"
+          title="Account settings"
         >
           <User className="w-5 h-5" style={{ color: "var(--accent)" }} />
-        </button>
+        </Link>
       </div>
     </header>
   );
