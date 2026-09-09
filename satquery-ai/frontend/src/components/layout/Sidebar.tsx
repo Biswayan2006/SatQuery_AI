@@ -39,9 +39,11 @@ export default function Sidebar() {
       style={{ background: "var(--bg-base)", borderRight: "1px solid var(--border)" }}
     >
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-3 px-5 h-16 flex-shrink-0"
+      <Link
+        href="/"
+        className="flex items-center gap-3 px-5 h-16 flex-shrink-0 hover:opacity-90 transition-opacity no-tap"
         style={{ borderBottom: "1px solid var(--border)" }}
+        title="Return to SatQuery AI Landing Page"
       >
         <div
           className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-lg"
@@ -55,7 +57,7 @@ export default function Sidebar() {
         >
           SatQuery AI
         </span>
-      </div>
+      </Link>
 
       {/* ── Project selector ─────────────────────────────────────────────── */}
       <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>

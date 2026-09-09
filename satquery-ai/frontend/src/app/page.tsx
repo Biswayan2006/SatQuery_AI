@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Check } from "lucide-react";
 
 /* ── Inline SVG Satellite for consistent styling ─────────────────────────── */
 function SatelliteIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
@@ -28,12 +28,17 @@ function SatelliteIcon({ size = 18, color = "currentColor" }: { size?: number; c
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [scrollProgress, setScrollProgress] = useState(0);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
+
+  const isLaunchingRef = useRef(false);
+  isLaunchingRef.current = isLaunching;
 
   // Check prefers-reduced-motion
   useEffect(() => {
@@ -53,9 +58,18 @@ export default function LandingPage() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // Pre-fetch the /app dashboard route for zero-latency transition
+  useEffect(() => {
+    try {
+      router.prefetch("/app");
+    } catch {
+      // ignore
+    }
+  }, [router]);
+
   // Track window scroll progress between 0 and 1
   useEffect(() => {
-    if (isReducedMotion) return;
+    if (isReducedMotion || isLaunching) return;
 
     const handleScroll = () => {
       const scrollY = window.scrollY;
@@ -72,7 +86,19 @@ export default function LandingPage() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isReducedMotion]);
+  }, [isReducedMotion, isLaunching]);
+
+  // Launch transition into /app dashboard
+  const handleLaunch = useCallback(() => {
+    if (isReducedMotion) {
+      router.push("/app");
+      return;
+    }
+    setIsLaunching(true);
+    setTimeout(() => {
+      router.push("/app");
+    }, 600);
+  }, [isReducedMotion, router]);
 
   // Smooth scroll helper to advance to launch stage
   const scrollToLaunch = useCallback(() => {
@@ -91,6 +117,7 @@ export default function LandingPage() {
 
     let animId: number;
     let rotation = 0;
+    let launchZoom = 0;
 
     // Fixed stars list
     const starsCount = 200;
@@ -187,6 +214,11 @@ export default function LandingPage() {
       const w = window.innerWidth;
       const h = window.innerHeight;
 
+      // Accelerate camera if launch transition is triggered
+      if (isLaunchingRef.current) {
+        launchZoom += dt * 3.2;
+      }
+
       // Clear space background
       ctx.fillStyle = "#080B0F";
       ctx.fillRect(0, 0, w, h);
@@ -201,20 +233,22 @@ export default function LandingPage() {
         ctx.fill();
       });
 
-      // Zoom interpolation based on scroll progress
-      // Progress 0 -> Earth at R = min(w,h) * 0.32
-      // Progress 1 -> Earth scales to R = min(w,h) * 1.6 (zoomed in camera approach)
+      // Zoom interpolation based on scroll progress and launch sequence
       const currentP = isReducedMotion ? 0.85 : scrollProgress;
       const baseR = Math.min(w, h) * 0.34;
       const maxR = Math.min(w, h) * 1.7;
-      const R = baseR + (maxR - baseR) * Math.pow(currentP, 1.4);
+      let R = baseR + (maxR - baseR) * Math.pow(currentP, 1.4);
 
-      // Center shifts slightly up and left on approach for cinematic asymmetry
+      if (launchZoom > 0) {
+        R *= 1 + launchZoom * 2.2;
+      }
+
+      // Center shifts slightly for cinematic asymmetry
       const cx = w / 2 - (w * 0.12) * currentP;
       const cy = h / 2 + (h * 0.05) * currentP;
 
       // Earth rotation
-      rotation += dt * 8; // degrees per second
+      rotation += dt * (isLaunchingRef.current ? 35 : 8);
       const rotY = rotation;
 
       // 1. Atmosphere halo (soft blue glow)
@@ -237,9 +271,9 @@ export default function LandingPage() {
         cy,
         R
       );
-      globeGrad.addColorStop(0, "#22394A"); // illuminated ocean
-      globeGrad.addColorStop(0.65, "#121E27"); // deep ocean
-      globeGrad.addColorStop(1, "#090F14"); // shadowed terminator
+      globeGrad.addColorStop(0, "#22394A");
+      globeGrad.addColorStop(0.65, "#121E27");
+      globeGrad.addColorStop(1, "#090F14");
 
       ctx.beginPath();
       ctx.arc(cx, cy, R, 0, Math.PI * 2);
@@ -297,7 +331,7 @@ export default function LandingPage() {
       }
 
       // 4. Continents / Landmasses
-      ctx.fillStyle = "rgba(65, 95, 80, 0.45)"; // Muted Earth vegetation/land tone
+      ctx.fillStyle = "rgba(65, 95, 80, 0.45)";
       ctx.strokeStyle = "rgba(120, 170, 140, 0.35)";
       ctx.lineWidth = 1.2;
 
@@ -343,10 +377,9 @@ export default function LandingPage() {
       ctx.stroke();
 
       // 6. Satellite Orbit & Moving Satellite
-      // Satellite orbit inclination (~28 deg)
       const orbitA = R * 1.38;
       const orbitB = R * 0.52;
-      const orbitAngle = -0.35; // radians inclination
+      const orbitAngle = -0.35;
 
       ctx.save();
       ctx.translate(cx, cy);
@@ -368,10 +401,9 @@ export default function LandingPage() {
       const satY = orbitB * Math.sin(satAngle);
 
       // Nadir sensor beam projected from satellite to Earth surface
-      if (currentP < 0.8) {
+      if (currentP < 0.8 && !isLaunchingRef.current) {
         ctx.beginPath();
         ctx.moveTo(satX, satY);
-        // ground footprint beneath satellite
         const footX = satX * 0.72;
         const footY = satY * 0.72;
         ctx.lineTo(footX - 12, footY);
@@ -380,7 +412,6 @@ export default function LandingPage() {
         ctx.fillStyle = "rgba(155, 213, 232, 0.08)";
         ctx.fill();
 
-        // Footprint ground circle
         ctx.beginPath();
         ctx.ellipse(footX, footY, 14, 5, 0, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(155, 213, 232, 0.32)";
@@ -400,7 +431,7 @@ export default function LandingPage() {
       ctx.fillRect(-10, -2, 5, 4);
       ctx.fillRect(5, -2, 5, 4);
 
-      // Small antenna beacon
+      // Antenna beacon
       ctx.strokeStyle = "#9BD5E8";
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -408,7 +439,7 @@ export default function LandingPage() {
       ctx.lineTo(0, -6);
       ctx.stroke();
 
-      // Satellite position pulse
+      // Satellite pulse
       const pulseR = 8 + Math.sin(time * 0.005) * 3;
       ctx.beginPath();
       ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
@@ -429,25 +460,20 @@ export default function LandingPage() {
   }, [scrollProgress, isReducedMotion]);
 
   // Optical imagery transition opacity: emerges as camera approaches Earth
-  // starts fading in around progress 0.45, reaches full presence around 0.75+
   const imageryOpacity = isReducedMotion
     ? 0.75
     : Math.min(Math.max((scrollProgress - 0.4) / 0.35, 0), 0.85);
 
   // Text stage visibility calculations
-  // State 1: Orbit (progress 0 - 0.35)
-  const isOrbitState = scrollProgress < 0.35;
-  // State 2: Observation query cue (progress 0.45 - 0.75)
-  const isObservationState = scrollProgress >= 0.4 && scrollProgress < 0.78;
-  // State 3: Final Launch state (progress 0.78 - 1.0)
-  const isLaunchState = scrollProgress >= 0.78 || isReducedMotion;
+  const isOrbitState = scrollProgress < 0.35 && !isLaunching;
+  const isObservationState = scrollProgress >= 0.4 && scrollProgress < 0.78 && !isLaunching;
+  const isLaunchState = (scrollProgress >= 0.78 || isReducedMotion) && !isLaunching;
 
   return (
     <div
       ref={containerRef}
       className="relative bg-[#080B0F] text-[#E8EDF2] select-none font-sans"
       style={{
-        // 3 screenfuls for smooth scroll-driven camera zoom
         height: isReducedMotion ? "100vh" : "280vh",
       }}
     >
@@ -485,6 +511,33 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* ── Launch HUD Transition Overlay ─────────────────────────────────── */}
+      {isLaunching && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#080B0F]/80 backdrop-blur-md transition-opacity duration-300">
+          <div className="max-w-md w-full px-6 text-center space-y-4 font-mono">
+            <div className="w-12 h-12 mx-auto rounded-lg bg-[#518DB2]/20 border border-[#518DB2]/50 flex items-center justify-center text-[#9BD5E8] animate-pulse">
+              <SatelliteIcon size={24} color="#9BD5E8" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold tracking-wider text-[#9BD5E8]">
+                ESTABLISHING SENSOR LINK
+              </p>
+              <p className="text-sm text-white">
+                Connecting to SatQuery AI Workspace...
+              </p>
+            </div>
+            <div className="w-full h-1.5 bg-[#1A2129] rounded-full overflow-hidden border border-[#518DB2]/30">
+              <div className="h-full bg-[#518DB2] animate-pulse w-full transition-all duration-500" />
+            </div>
+            <div className="flex justify-between text-[10px] text-[#9BD5E8]/60">
+              <span>CONTROLLER: 8000</span>
+              <span>ORBIT: LOCKED</span>
+              <span>SCHEMA: RS-VLM</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Minimal Header (Always Accessible) ────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-6 sm:px-10 border-b border-[#E8EDF2]/10 bg-[#080B0F]/40 backdrop-blur-md">
         <div className="flex items-center space-x-3">
@@ -497,12 +550,14 @@ export default function LandingPage() {
         </div>
 
         <nav>
-          <Link
-            href="/app"
+          <button
+            type="button"
+            onClick={handleLaunch}
+            onMouseEnter={() => router.prefetch("/app")}
             className="text-xs sm:text-sm font-medium px-4 py-2 rounded-md bg-[#518DB2] text-white hover:bg-[#3D7396] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080B0F]"
           >
             Launch App
-          </Link>
+          </button>
         </nav>
       </header>
 
@@ -534,13 +589,15 @@ export default function LandingPage() {
               </p>
 
               <div className="pt-2">
-                <Link
-                  href="/app"
+                <button
+                  type="button"
+                  onClick={handleLaunch}
+                  onMouseEnter={() => router.prefetch("/app")}
                   className="inline-flex items-center space-x-2 px-5 py-3 rounded-md bg-[#518DB2] text-white text-sm font-semibold hover:bg-[#3D7396] transition-colors duration-150 shadow-lg shadow-[#518DB2]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
                 >
                   <span>Launch SatQuery AI</span>
                   <ArrowRight className="w-4 h-4" />
-                </Link>
+                </button>
               </div>
             </div>
           )}
@@ -574,13 +631,15 @@ export default function LandingPage() {
               </div>
 
               <div className="pt-2">
-                <Link
-                  href="/app"
+                <button
+                  type="button"
+                  onClick={handleLaunch}
+                  onMouseEnter={() => router.prefetch("/app")}
                   className="inline-flex items-center space-x-2 px-6 py-3.5 rounded-md bg-[#518DB2] text-white text-base font-semibold hover:bg-[#3D7396] transition-colors duration-150 shadow-xl shadow-[#518DB2]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
                 >
                   <span>Launch SatQuery AI</span>
                   <ArrowRight className="w-5 h-5" />
-                </Link>
+                </button>
               </div>
             </div>
           )}
@@ -604,12 +663,13 @@ export default function LandingPage() {
           )}
 
           {isLaunchState && (
-            <Link
-              href="/app"
+            <button
+              type="button"
+              onClick={handleLaunch}
               className="hover:text-white transition-colors duration-150"
             >
               Ready for analysis &rarr;
-            </Link>
+            </button>
           )}
 
           <div>
