@@ -1,1494 +1,622 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Check,
-  Cpu,
-} from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
-interface Scenario {
-  id: string;
-  name: string;
-  task: string;
-  latency: string;
-  query: string;
-  modality: string;
-  inputLabel: string;
-  inputSrc: string;
-  evidenceLabel: string;
-  evidenceSrc: string;
-  answer: string;
-  model: string;
-  confidence: string;
-  traceSteps: string[];
+/* ── Inline SVG Satellite for consistent styling ─────────────────────────── */
+function SatelliteIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2a2.236 2.236 0 0 0-3-3" />
+      <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+      <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+      <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+    </svg>
+  );
 }
 
-const SCENARIOS: Scenario[] = [
-  {
-    id: "change",
-    name: "Change detection",
-    task: "CHANGE_DETECTION",
-    latency: "412ms",
-    confidence: "0.94",
-    modality: "Bi-temporal Optical",
-    query: "What changed between these two acquisition dates?",
-    inputLabel: "Registered optical input (T1)",
-    inputSrc: "/assets/optical_main_hd.png",
-    evidenceLabel: "Siamese differential distance heatmap",
-    evidenceSrc: "/assets/change_main_hd.png",
-    answer:
-      "Analysis indicates new ground surface clearance and construction activity in the southern sector. Bi-temporal Euclidean feature difference highlights localized change across the scene.",
-    model: "microsoft/resnet-50 (Siamese backbone)",
-    traceSteps: [
-      "input_validator.py: 2 registered optical tiles decoded (3 bands, 256x256)",
-      "task_classifier.py: routed to CHANGE_DETECTION (confidence: 0.94)",
-      "controller.py: extracted layer-4 embeddings and calculated Euclidean distance",
-      "result_integrator.py: rendered differential overlay and compiled report summary",
-    ],
-  },
-  {
-    id: "vqa",
-    name: "Visual Q&A",
-    task: "VQA",
-    latency: "628ms",
-    confidence: "0.91",
-    modality: "Multispectral Optical",
-    query: "Identify the dominant land-cover and waterway features in this scene.",
-    inputLabel: "Multispectral optical tile",
-    inputSrc: "/assets/optical_main_hd.png",
-    evidenceLabel: "Optical scene inspection",
-    evidenceSrc: "/assets/optical_sample.png",
-    answer:
-      "The scene contains coastal land-cover characterized by tidal estuaries, dense riparian vegetation bordering water channels, and adjacent agricultural parcels.",
-    model: "Salesforce/blip2-opt-2.7b",
-    traceSteps: [
-      "input_validator.py: 1 optical tile validated (.png, 256x256)",
-      "task_classifier.py: routed to VQA (confidence: 0.91)",
-      "controller.py: conditioned vision-language prompt with remote-sensing schema",
-      "result_integrator.py: generated natural-language descriptive answer",
-    ],
-  },
-  {
-    id: "grounding",
-    name: "Text-guided grounding",
-    task: "GROUNDING",
-    latency: "389ms",
-    confidence: "0.88",
-    modality: "Sub-meter Aerial",
-    query: "Locate industrial storage tanks and coastal structures.",
-    inputLabel: "Sub-meter aerial crop",
-    inputSrc: "/assets/optical_sample.png",
-    evidenceLabel: "Open-vocabulary detection coordinates",
-    evidenceSrc: "/assets/change_sample.png",
-    answer:
-      "Located target structures with high visual agreement. Normalized bounding coordinates extracted for coastal infrastructure and tanks.",
-    model: "google/owlvit-base-patch32",
-    traceSteps: [
-      "input_validator.py: single image input verified",
-      "task_classifier.py: routed to GROUNDING (confidence: 0.88)",
-      "controller.py: evaluated text embeddings against image patch tokens",
-      "result_integrator.py: filtered bounding boxes with score threshold > 0.25",
-    ],
-  },
-  {
-    id: "fusion",
-    name: "SAR and optical fusion",
-    task: "SAR_FUSION",
-    latency: "514ms",
-    confidence: "0.89",
-    modality: "Co-registered Optical + SAR",
-    query: "Assess ground roughness and structures through cloud-obscured sectors.",
-    inputLabel: "Optical multispectral reflectance",
-    inputSrc: "/assets/optical_sample.png",
-    evidenceLabel: "Synthetic aperture radar backscatter",
-    evidenceSrc: "/assets/sar_main_hd.png",
-    answer:
-      "Synthetic aperture radar backscatter (VV/VH polarizations) reveals metallic structures and high-roughness terrain obscured by optical cloud cover.",
-    model: "Dual ResNet-50 + MLP fusion",
-    traceSteps: [
-      "input_validator.py: paired optical and SAR inputs confirmed",
-      "task_classifier.py: routed to SAR_FUSION (confidence: 0.89)",
-      "controller.py: aligned radar backscatter amplitude with optical channels",
-      "result_integrator.py: fused cross-modal features into unified interpretation",
-    ],
-  },
-];
+export default function LandingPage() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-const PIPELINE_STEPS = [
-  {
-    step: 1,
-    title: "Input validation",
-    file: "input_validator.py",
-    description:
-      "Verifies file formats (.tif, .tiff, .png, .jpg), decodes radiometric channels with rasterio and Pillow, validates spatial dimensions, and confirms temporal or SAR/optical compatibility for multi-image tasks.",
-  },
-  {
-    step: 2,
-    title: "Task classification",
-    file: "task_classifier.py",
-    description:
-      "Evaluates query intent and image count to determine the target specialist pipeline: VQA, CAPTIONING, GROUNDING, CHANGE_DETECTION, CHANGE_VQA, or SAR_FUSION.",
-  },
-  {
-    step: 3,
-    title: "Agentic controller",
-    file: "controller.py",
-    description:
-      "Executes the plan, dispatches tensors to the designated PyTorch specialist backbones, measures inference latency, and handles model fallbacks if weights are still initializing.",
-  },
-  {
-    step: 4,
-    title: "Result integration",
-    file: "report_generator.py",
-    description:
-      "Combines textual natural-language answers, visual evidence overlays (bounding coordinates or differential change maps), execution traces, and exportable PDF reports.",
-  },
-];
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-export default function ShowcasePage() {
-  const [activeScenarioId, setActiveScenarioId] = useState<string>("change");
-  const [currentStep, setCurrentStep] = useState<number>(0); // 0: Ingest, 1: Classify, 2: Execute, 3: Result
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isReducedMotion, setIsReducedMotion] = useState<boolean>(false);
-  const [isMounted, setIsMounted] = useState<boolean>(false);
-
-  // Scroll reveal references
-  const problemRef = useRef<HTMLElement>(null);
-  const approachRef = useRef<HTMLElement>(null);
-  const pipelineRef = useRef<HTMLElement>(null);
-  const techStackRef = useRef<HTMLElement>(null);
-
-  // Pipeline animation active state
-  const [pipelineProgress, setPipelineProgress] = useState<number>(0);
-  const [pipelineActiveStep, setPipelineActiveStep] = useState<number>(1);
-
-  const currentScenario =
-    SCENARIOS.find((s) => s.id === activeScenarioId) ?? SCENARIOS[0];
-
-  // Detect prefers-reduced-motion
+  // Check prefers-reduced-motion
   useEffect(() => {
+    setMounted(true);
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setIsReducedMotion(mq.matches);
     if (mq.matches) {
-      setIsPlaying(false);
-      setCurrentStep(3); // show settled final state immediately
-      setPipelineProgress(100);
-      setPipelineActiveStep(4);
+      setScrollProgress(1);
     }
     const handler = (e: MediaQueryListEvent) => {
       setIsReducedMotion(e.matches);
       if (e.matches) {
-        setIsPlaying(false);
-        setCurrentStep(3);
-        setPipelineProgress(100);
-        setPipelineActiveStep(4);
+        setScrollProgress(1);
       }
     };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // One page-load entrance sequence: triggers once on mount
+  // Track window scroll progress between 0 and 1
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsMounted(true);
-    }, 50);
-    return () => clearTimeout(timer);
+    if (isReducedMotion) return;
+
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const maxScroll =
+        document.documentElement.scrollHeight - window.innerHeight;
+      if (maxScroll <= 0) {
+        setScrollProgress(0);
+        return;
+      }
+      const p = Math.min(Math.max(scrollY / maxScroll, 0), 1);
+      setScrollProgress(p);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isReducedMotion]);
+
+  // Smooth scroll helper to advance to launch stage
+  const scrollToLaunch = useCallback(() => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: "smooth",
+    });
   }, []);
 
-  // Hero demonstrative sequence: auto-advances through 4 phases (unless paused or reduced motion)
+  // Canvas Earth & Space Animation
   useEffect(() => {
-    if (isReducedMotion || !isPlaying) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev >= 3) {
-          // Pause at final frame per PRD Section 3.2, evaluator can replay
-          setIsPlaying(false);
-          return 3;
-        }
-        return prev + 1;
-      });
-    }, 2400);
+    let animId: number;
+    let rotation = 0;
 
-    return () => clearInterval(interval);
-  }, [isPlaying, isReducedMotion]);
+    // Fixed stars list
+    const starsCount = 200;
+    const stars: { x: number; y: number; r: number; a: number; speed: number }[] = [];
 
-  // Restart hero sequence
-  const restartSequence = useCallback(() => {
-    setCurrentStep(0);
-    if (!isReducedMotion) {
-      setIsPlaying(true);
-    }
-  }, [isReducedMotion]);
-
-  // Select scenario: resets sequence to phase 0 so evaluator watches execution
-  const handleSelectScenario = useCallback(
-    (id: string) => {
-      setActiveScenarioId(id);
-      setCurrentStep(0);
-      if (!isReducedMotion) {
-        setIsPlaying(true);
+    const initStars = (w: number, h: number) => {
+      stars.length = 0;
+      for (let i = 0; i < starsCount; i++) {
+        stars.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          r: Math.random() * 1.2 + 0.3,
+          a: Math.random() * 0.7 + 0.2,
+          speed: Math.random() * 0.02 + 0.005,
+        });
       }
-    },
-    [isReducedMotion]
-  );
+    };
 
-  // IntersectionObserver for scroll reveals (triggers once, respects reduced motion)
-  useEffect(() => {
-    if (typeof window === "undefined" || isReducedMotion) return;
+    // Resize handling
+    const resizeCanvas = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.scale(dpr, dpr);
+      initStars(w, h);
+    };
 
-    const elements = [
-      problemRef.current,
-      approachRef.current,
-      pipelineRef.current,
-      techStackRef.current,
-    ].filter(Boolean) as HTMLElement[];
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-revealed");
-            observer.unobserve(entry.target);
+    // Continental landmass coordinates (approximate polygonal clusters)
+    const landmasses = [
+      // Eurasia / Africa
+      [
+        { lat: 60, lng: 30 },
+        { lat: 55, lng: 70 },
+        { lat: 40, lng: 110 },
+        { lat: 20, lng: 80 },
+        { lat: 10, lng: 50 },
+        { lat: 0, lng: 20 },
+        { lat: -30, lng: 25 },
+        { lat: -25, lng: 35 },
+        { lat: 5, lng: 40 },
+        { lat: 35, lng: 30 },
+      ],
+      // Americas
+      [
+        { lat: 65, lng: -100 },
+        { lat: 50, lng: -80 },
+        { lat: 30, lng: -85 },
+        { lat: 10, lng: -75 },
+        { lat: -10, lng: -55 },
+        { lat: -45, lng: -65 },
+        { lat: -20, lng: -40 },
+        { lat: 5, lng: -50 },
+        { lat: 25, lng: -100 },
+      ],
+      // Australia / Pacific
+      [
+        { lat: -15, lng: 130 },
+        { lat: -25, lng: 150 },
+        { lat: -35, lng: 140 },
+        { lat: -30, lng: 115 },
+      ],
+    ];
+
+    // 3D Sphere projection
+    function project3D(
+      lat: number,
+      lng: number,
+      rotY: number,
+      R: number,
+      cx: number,
+      cy: number
+    ) {
+      const phi = ((90 - lat) * Math.PI) / 180;
+      const theta = ((lng + rotY) * Math.PI) / 180;
+      const x3 = R * Math.sin(phi) * Math.cos(theta);
+      const y3 = R * Math.cos(phi);
+      const z3 = R * Math.sin(phi) * Math.sin(theta);
+      return { x: cx + x3, y: cy - y3, z: z3, visible: z3 > -R * 0.1 };
+    }
+
+    let lastTime = performance.now();
+
+    const render = (time: number) => {
+      const dt = (time - lastTime) / 1000;
+      lastTime = time;
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      // Clear space background
+      ctx.fillStyle = "#080B0F";
+      ctx.fillRect(0, 0, w, h);
+
+      // Starfield rendering with subtle twinkle
+      stars.forEach((s) => {
+        const twinkle = Math.sin(time * s.speed + s.x) * 0.25;
+        const alpha = Math.min(Math.max(s.a + twinkle, 0.1), 0.9);
+        ctx.fillStyle = `rgba(180, 210, 230, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Zoom interpolation based on scroll progress
+      // Progress 0 -> Earth at R = min(w,h) * 0.32
+      // Progress 1 -> Earth scales to R = min(w,h) * 1.6 (zoomed in camera approach)
+      const currentP = isReducedMotion ? 0.85 : scrollProgress;
+      const baseR = Math.min(w, h) * 0.34;
+      const maxR = Math.min(w, h) * 1.7;
+      const R = baseR + (maxR - baseR) * Math.pow(currentP, 1.4);
+
+      // Center shifts slightly up and left on approach for cinematic asymmetry
+      const cx = w / 2 - (w * 0.12) * currentP;
+      const cy = h / 2 + (h * 0.05) * currentP;
+
+      // Earth rotation
+      rotation += dt * 8; // degrees per second
+      const rotY = rotation;
+
+      // 1. Atmosphere halo (soft blue glow)
+      const atmoGrad = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, R * 1.25);
+      atmoGrad.addColorStop(0, "rgba(61, 115, 150, 0.28)");
+      atmoGrad.addColorStop(0.5, "rgba(40, 80, 107, 0.12)");
+      atmoGrad.addColorStop(1, "rgba(8, 11, 15, 0)");
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 1.25, 0, Math.PI * 2);
+      ctx.fillStyle = atmoGrad;
+      ctx.fill();
+
+      // 2. Earth base sphere with spherical shading
+      const globeGrad = ctx.createRadialGradient(
+        cx - R * 0.35,
+        cy - R * 0.35,
+        R * 0.05,
+        cx,
+        cy,
+        R
+      );
+      globeGrad.addColorStop(0, "#22394A"); // illuminated ocean
+      globeGrad.addColorStop(0.65, "#121E27"); // deep ocean
+      globeGrad.addColorStop(1, "#090F14"); // shadowed terminator
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = globeGrad;
+      ctx.fill();
+
+      // Clip subsequent continent & grid rendering inside the Earth sphere
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.clip();
+
+      // 3. Latitude & Longitude grid lines
+      ctx.strokeStyle = "rgba(110, 165, 195, 0.14)";
+      ctx.lineWidth = 1;
+
+      // Latitudes
+      for (let lat = -60; lat <= 60; lat += 30) {
+        ctx.beginPath();
+        let started = false;
+        for (let lng = 0; lng <= 360; lng += 10) {
+          const pt = project3D(lat, lng, rotY, R, cx, cy);
+          if (pt.visible) {
+            if (!started) {
+              ctx.moveTo(pt.x, pt.y);
+              started = true;
+            } else {
+              ctx.lineTo(pt.x, pt.y);
+            }
+          } else {
+            started = false;
+          }
+        }
+        ctx.stroke();
+      }
+
+      // Longitudes
+      for (let lng = 0; lng < 360; lng += 30) {
+        ctx.beginPath();
+        let started = false;
+        for (let lat = -80; lat <= 80; lat += 10) {
+          const pt = project3D(lat, lng, rotY, R, cx, cy);
+          if (pt.visible) {
+            if (!started) {
+              ctx.moveTo(pt.x, pt.y);
+              started = true;
+            } else {
+              ctx.lineTo(pt.x, pt.y);
+            }
+          } else {
+            started = false;
+          }
+        }
+        ctx.stroke();
+      }
+
+      // 4. Continents / Landmasses
+      ctx.fillStyle = "rgba(65, 95, 80, 0.45)"; // Muted Earth vegetation/land tone
+      ctx.strokeStyle = "rgba(120, 170, 140, 0.35)";
+      ctx.lineWidth = 1.2;
+
+      landmasses.forEach((poly) => {
+        ctx.beginPath();
+        let anyVisible = false;
+        poly.forEach((coord, idx) => {
+          const pt = project3D(coord.lat, coord.lng, rotY, R, cx, cy);
+          if (pt.visible) {
+            anyVisible = true;
+            if (idx === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
           }
         });
-      },
-      {
-        threshold: 0.15,
-        rootMargin: "0px 0px -40px 0px",
-      }
-    );
-
-    elements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, [isReducedMotion]);
-
-  // Pipeline section demonstrative animation: triggers once when pipeline section scrolls into view
-  useEffect(() => {
-    if (typeof window === "undefined" || isReducedMotion) return;
-
-    const el = pipelineRef.current;
-    if (!el) return;
-
-    let timerId: NodeJS.Timeout;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry.isIntersecting) {
-          observer.unobserve(el);
-
-          // Animate line left-to-right in under 1.4s, sequentially highlighting 4 stages
-          setPipelineProgress(10);
-          setPipelineActiveStep(1);
-
-          timerId = setTimeout(() => {
-            setPipelineProgress(40);
-            setPipelineActiveStep(2);
-
-            setTimeout(() => {
-              setPipelineProgress(70);
-              setPipelineActiveStep(3);
-
-              setTimeout(() => {
-                setPipelineProgress(100);
-                setPipelineActiveStep(4);
-              }, 380);
-            }, 380);
-          }, 380);
+        if (anyVisible) {
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
         }
-      },
-      { threshold: 0.25 }
-    );
+      });
 
-    observer.observe(el);
+      // 5. Day/Night Shadow Terminator overlay
+      const shadowGrad = ctx.createLinearGradient(
+        cx - R,
+        cy - R,
+        cx + R * 0.8,
+        cy + R * 0.8
+      );
+      shadowGrad.addColorStop(0, "rgba(255, 255, 255, 0.06)");
+      shadowGrad.addColorStop(0.4, "rgba(0, 0, 0, 0)");
+      shadowGrad.addColorStop(1, "rgba(4, 6, 8, 0.75)");
+
+      ctx.fillStyle = shadowGrad;
+      ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+
+      ctx.restore(); // end clip
+
+      // Earth limb edge glow
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(120, 185, 220, 0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 6. Satellite Orbit & Moving Satellite
+      // Satellite orbit inclination (~28 deg)
+      const orbitA = R * 1.38;
+      const orbitB = R * 0.52;
+      const orbitAngle = -0.35; // radians inclination
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(orbitAngle);
+
+      // Faint orbital ellipse track
+      ctx.beginPath();
+      ctx.ellipse(0, 0, orbitA, orbitB, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(81, 141, 178, ${Math.max(0.28 - currentP * 0.2, 0.08)})`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Satellite position along orbit
+      const satSpeed = 0.45;
+      const satAngle = (time / 1000) * satSpeed;
+      const satX = orbitA * Math.cos(satAngle);
+      const satY = orbitB * Math.sin(satAngle);
+
+      // Nadir sensor beam projected from satellite to Earth surface
+      if (currentP < 0.8) {
+        ctx.beginPath();
+        ctx.moveTo(satX, satY);
+        // ground footprint beneath satellite
+        const footX = satX * 0.72;
+        const footY = satY * 0.72;
+        ctx.lineTo(footX - 12, footY);
+        ctx.lineTo(footX + 12, footY);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(155, 213, 232, 0.08)";
+        ctx.fill();
+
+        // Footprint ground circle
+        ctx.beginPath();
+        ctx.ellipse(footX, footY, 14, 5, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(155, 213, 232, 0.32)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Draw Satellite icon & solar panels
+      ctx.translate(satX, satY);
+
+      // Satellite body
+      ctx.fillStyle = "#E8EDF2";
+      ctx.fillRect(-3, -3, 6, 6);
+
+      // Solar panel wings
+      ctx.fillStyle = "#518DB2";
+      ctx.fillRect(-10, -2, 5, 4);
+      ctx.fillRect(5, -2, 5, 4);
+
+      // Small antenna beacon
+      ctx.strokeStyle = "#9BD5E8";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, -3);
+      ctx.lineTo(0, -6);
+      ctx.stroke();
+
+      // Satellite position pulse
+      const pulseR = 8 + Math.sin(time * 0.005) * 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(155, 213, 232, 0.28)";
+      ctx.stroke();
+
+      ctx.restore();
+
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
 
     return () => {
-      observer.disconnect();
-      clearTimeout(timerId);
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resizeCanvas);
     };
-  }, [isReducedMotion]);
+  }, [scrollProgress, isReducedMotion]);
+
+  // Optical imagery transition opacity: emerges as camera approaches Earth
+  // starts fading in around progress 0.45, reaches full presence around 0.75+
+  const imageryOpacity = isReducedMotion
+    ? 0.75
+    : Math.min(Math.max((scrollProgress - 0.4) / 0.35, 0), 0.85);
+
+  // Text stage visibility calculations
+  // State 1: Orbit (progress 0 - 0.35)
+  const isOrbitState = scrollProgress < 0.35;
+  // State 2: Observation query cue (progress 0.45 - 0.75)
+  const isObservationState = scrollProgress >= 0.4 && scrollProgress < 0.78;
+  // State 3: Final Launch state (progress 0.78 - 1.0)
+  const isLaunchState = scrollProgress >= 0.78 || isReducedMotion;
 
   return (
     <div
-      className="min-h-screen font-sans antialiased text-[#1A2129]"
+      ref={containerRef}
+      className="relative bg-[#080B0F] text-[#E8EDF2] select-none font-sans"
       style={{
-        backgroundColor: "#F0F1EC",
-        color: "#1A2129",
+        // 3 screenfuls for smooth scroll-driven camera zoom
+        height: isReducedMotion ? "100vh" : "280vh",
       }}
     >
-      {/* ── Top Navigation Bar ────────────────────────────────────────────── */}
-      <header
-        className="w-full border-b sticky top-0 z-30"
-        style={{
-          backgroundColor: "#F0F1EC",
-          borderColor: "#CBCFC6",
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <span
-              className="text-xs font-mono font-medium px-2 py-0.5 rounded-md border"
-              style={{
-                backgroundColor: "#F0F1EC",
-                color: "#28506B",
-                borderColor: "#CBCFC6",
-              }}
-            >
-              PS 26167
-            </span>
-            <span className="text-sm font-medium text-[#1A2129]">
-              ISRO / Space Applications Centre
-            </span>
+      {/* ── Fixed Canvas Viewport ─────────────────────────────────────────── */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <canvas ref={canvasRef} className="w-full h-full block" />
+
+        {/* Remote Sensing Satellite Imagery Layer (Blends in upon approach) */}
+        <div
+          className="absolute inset-0 transition-opacity duration-500 flex items-center justify-center pointer-events-none"
+          style={{ opacity: imageryOpacity }}
+        >
+          {/* High-res remote sensing optical crop with subtle vignette */}
+          <div className="relative w-full max-w-4xl h-[70vh] rounded-2xl overflow-hidden border border-[#518DB2]/30 shadow-2xl shadow-black/80">
+            <Image
+              src="/assets/optical_main_hd.png"
+              alt="Optical Earth observation imagery"
+              fill
+              className="object-cover brightness-95 contrast-105"
+              priority
+            />
+            {/* Dark vignette blending into space */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#080B0F] via-transparent to-[#080B0F]/80" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#080B0F] via-transparent to-[#080B0F]/80" />
+
+            {/* Sensor telemetry brackets */}
+            <div className="absolute top-4 left-5 font-mono text-[11px] text-[#9BD5E8]/80 flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-[#518DB2] animate-pulse" />
+              <span>SENSOR: SENTINEL-2 MSI / 10M GSD</span>
+            </div>
+            <div className="absolute bottom-4 right-5 font-mono text-[11px] text-[#9BD5E8]/70">
+              LAT 19°04&apos;N &middot; LON 72°52&apos;E
+            </div>
           </div>
-          <nav className="flex items-center space-x-3">
-            <Link
-              href="/app"
-              className="text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-md text-white transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28506B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0F1EC]"
-              style={{ backgroundColor: "#28506B" }}
-            >
-              Launch app
-            </Link>
-            <a
-              href="https://github.com/PrakashRishiraj/SatQuery_AI"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-md border transition-colors duration-150 hover:bg-[#CBCFC6]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2129] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0F1EC]"
-              style={{
-                borderColor: "#CBCFC6",
-                color: "#1A2129",
-                backgroundColor: "transparent",
-              }}
-            >
-              Repository
-            </a>
-          </nav>
         </div>
+      </div>
+
+      {/* ── Minimal Header (Always Accessible) ────────────────────────────── */}
+      <header className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-6 sm:px-10 border-b border-[#E8EDF2]/10 bg-[#080B0F]/40 backdrop-blur-md">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-md bg-[#518DB2]/20 border border-[#518DB2]/40 flex items-center justify-center text-[#9BD5E8]">
+            <SatelliteIcon size={18} color="#9BD5E8" />
+          </div>
+          <span className="text-base font-semibold tracking-tight text-white">
+            SatQuery AI
+          </span>
+        </div>
+
+        <nav>
+          <Link
+            href="/app"
+            className="text-xs sm:text-sm font-medium px-4 py-2 rounded-md bg-[#518DB2] text-white hover:bg-[#3D7396] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080B0F]"
+          >
+            Launch App
+          </Link>
+        </nav>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-20 sm:space-y-28">
-        {/* ── 1. HERO (One page-load moment + Demonstrative centerpiece) ────── */}
-        <section
-          id="hero"
-          aria-labelledby="hero-heading"
-          className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start"
-        >
-          {/* Left Column: Asymmetric text briefing (staggered 400ms entrance) */}
-          <div
-            className={`lg:col-span-5 space-y-6 text-left transition-all duration-300 ease-out ${
-              isMounted || isReducedMotion
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-3"
-            }`}
-          >
-            <div className="text-xs text-[#28506B] font-medium leading-relaxed">
-              Problem Statement 26167: Agentic Vision-Language Remote Sensing
-              Assistant for Optical and SAR Satellite Data. Space Applications
-              Centre (SAC), ISRO.
-            </div>
+      {/* ── Foreground Content Layers (Sticky Fullscreen) ─────────────────── */}
+      <div className="sticky top-0 h-screen w-full flex flex-col justify-between p-6 sm:p-12 pointer-events-none z-10 pt-24">
+        {/* Top Spacer */}
+        <div />
 
-            <h1
-              id="hero-heading"
-              className="text-3xl sm:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-[#1A2129]"
-            >
-              One agentic assistant for optical and SAR satellite questions.
-            </h1>
-
-            <p className="text-base sm:text-lg leading-relaxed text-[#1A2129]/90 max-w-[62ch]">
-              An interactive vision-language system that coordinates specialist
-              deep-learning models to answer natural-language queries, detect
-              multi-temporal changes, and ground objects across satellite
-              imagery.
-            </p>
-
-            <div className="pt-2 flex flex-wrap items-center gap-3">
-              <Link
-                href="/app"
-                className="inline-flex items-center justify-center text-sm font-medium px-4 py-2.5 rounded-md text-white transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28506B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0F1EC]"
-                style={{ backgroundColor: "#28506B" }}
-              >
-                Open interactive workspace
-              </Link>
-              <a
-                href="https://github.com/PrakashRishiraj/SatQuery_AI"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center text-sm font-medium px-4 py-2.5 rounded-md border transition-colors duration-150 hover:bg-[#CBCFC6]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2129] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F0F1EC]"
-                style={{
-                  borderColor: "#CBCFC6",
-                  color: "#1A2129",
-                  backgroundColor: "transparent",
-                }}
-              >
-                View the repository
-              </a>
-            </div>
-
-            {/* Indicator of real backend execution */}
-            <div className="pt-4 border-t border-[#CBCFC6]/80 text-xs text-[#1A2129]/70 space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="w-2 h-2 rounded-full bg-[#5A7052]" />
-                <span className="font-mono text-[11px]">
-                  Demonstrative execution trace from controller.py
-                </span>
-              </div>
-              <p className="text-[11px] leading-normal">
-                Observe the 4 deterministic pipeline phases run through actual
-                model inference weights on real sensor inputs.
-              </p>
-            </div>
-          </div>
-
-          {/* Right Column: Demonstrative motion centerpiece (The real query lifecycle) */}
-          <div
-            className={`lg:col-span-7 transition-all duration-300 delay-150 ease-out ${
-              isMounted || isReducedMotion
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-3"
-            }`}
-          >
+        {/* Center Dynamic Brand Experience */}
+        <div className="max-w-xl mx-auto text-center space-y-6 pointer-events-auto">
+          {/* State 1: Orbit / Arrival */}
+          {isOrbitState && (
             <div
-              className="rounded-md border overflow-hidden shadow-sm"
-              style={{
-                borderColor: "#CBCFC6",
-                backgroundColor: "#FFFFFF",
-              }}
+              className={`space-y-4 transition-all duration-500 ease-out ${
+                mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
             >
-              {/* Scenario selector tabs */}
-              <div
-                className="px-3 py-2 border-b flex flex-wrap items-center justify-between gap-2 text-xs"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {SCENARIOS.map((scenario) => {
-                    const isActive = scenario.id === activeScenarioId;
-                    return (
-                      <button
-                        key={scenario.id}
-                        type="button"
-                        onClick={() => handleSelectScenario(scenario.id)}
-                        className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-                        style={{
-                          backgroundColor: isActive ? "#28506B" : "transparent",
-                          color: isActive ? "#FFFFFF" : "#1A2129",
-                          border: `1px solid ${isActive ? "#28506B" : "#CBCFC6"}`,
-                        }}
-                      >
-                        {scenario.name}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center space-x-2 font-mono text-[11px] text-[#1A2129]/70">
-                  <span className="font-semibold text-[#28506B]">
-                    {currentScenario.task}
-                  </span>
-                  <span>{currentScenario.latency}</span>
-                </div>
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md border border-[#518DB2]/30 bg-[#518DB2]/10 text-xs font-mono text-[#9BD5E8]">
+                <SatelliteIcon size={13} color="#9BD5E8" />
+                <span>ORBITAL RECONNAISSANCE</span>
               </div>
 
-              {/* Demonstrative Step Progress Bar (Step 1 to 4) */}
-              <div
-                className="px-4 py-2 border-b flex items-center justify-between gap-2 text-xs font-mono"
-                style={{
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                {/* 4 Stage Pills */}
-                <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
-                  {[
-                    { idx: 0, label: "1. Ingest" },
-                    { idx: 1, label: "2. Classify" },
-                    { idx: 2, label: "3. Execute" },
-                    { idx: 3, label: "4. Result" },
-                  ].map((st) => {
-                    const isPassed = currentStep >= st.idx;
-                    const isCurrent = currentStep === st.idx;
-                    return (
-                      <button
-                        key={st.idx}
-                        type="button"
-                        onClick={() => {
-                          setCurrentStep(st.idx);
-                          setIsPlaying(false);
-                        }}
-                        className="flex-1 py-1 px-1.5 rounded-md text-center text-[10px] sm:text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-                        style={{
-                          backgroundColor: isCurrent
-                            ? "#28506B"
-                            : isPassed
-                            ? "#28506B/10"
-                            : "#F0F1EC",
-                          color: isCurrent
-                            ? "#FFFFFF"
-                            : isPassed
-                            ? "#28506B"
-                            : "#1A2129/60",
-                          border: `1px solid ${
-                            isCurrent
-                              ? "#28506B"
-                              : isPassed
-                              ? "#28506B/30"
-                              : "#CBCFC6"
-                          }`,
-                        }}
-                      >
-                        {st.label}
-                      </button>
-                    );
-                  })}
-                </div>
+              <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-tight">
+                Ask Earth.
+              </h1>
 
-                {/* Playback Controls: Pause, Play, Replay */}
-                <div className="flex items-center space-x-1 pl-2 border-l border-[#CBCFC6]">
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaying((p) => !p)}
-                    aria-label={isPlaying ? "Pause demo" : "Play demo"}
-                    className="p-1 rounded-md border border-[#CBCFC6] text-[#1A2129] hover:bg-[#F0F1EC] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-                    title={isPlaying ? "Pause auto-step" : "Play auto-step"}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-3.5 h-3.5" />
-                    ) : (
-                      <Play className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={restartSequence}
-                    aria-label="Watch again"
-                    className="p-1 rounded-md border border-[#CBCFC6] text-[#1A2129] hover:bg-[#F0F1EC] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-                    title="Watch again from step 1"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
+              <p className="text-base sm:text-lg text-[#E8EDF2]/80 max-w-[42ch] mx-auto leading-relaxed">
+                Understand satellite imagery through natural language.
+              </p>
 
-              {/* Demonstrative Content Body: Shifts across the 4 stages */}
-              <div className="p-4 space-y-4">
-                {/* Stage Header Info Banner */}
-                <div
-                  className="px-3 py-2 rounded-md border text-xs flex items-center justify-between"
-                  style={{
-                    backgroundColor: "#F0F1EC",
-                    borderColor: "#CBCFC6",
-                  }}
-                >
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor:
-                          currentStep === 3 ? "#5A7052" : "#28506B",
-                      }}
-                    />
-                    <span className="font-semibold text-[#1A2129]">
-                      {currentStep === 0 && "Phase 1: Input Ingestion & Validation"}
-                      {currentStep === 1 && "Phase 2: Intent Classification"}
-                      {currentStep === 2 && "Phase 3: Specialist Model Execution"}
-                      {currentStep === 3 && "Phase 4: Evidence Grounding & Result"}
-                    </span>
-                  </div>
-                  <span className="font-mono text-[11px] text-[#28506B]">
-                    {currentStep === 0 && "input_validator.py"}
-                    {currentStep === 1 && "task_classifier.py"}
-                    {currentStep === 2 && "controller.py"}
-                    {currentStep === 3 && "report_generator.py"}
-                  </span>
-                </div>
-
-                {/* Query bar */}
-                <div
-                  className="p-3 rounded-md border text-xs space-y-1"
-                  style={{
-                    backgroundColor: "#F0F1EC",
-                    borderColor: "#CBCFC6",
-                  }}
-                >
-                  <div className="text-[#1A2129]/70 text-[11px]">
-                    User query:
-                  </div>
-                  <div className="font-medium text-[#1A2129] text-sm">
-                    &ldquo;{currentScenario.query}&rdquo;
-                  </div>
-                </div>
-
-                {/* Imagery Display: Responsive and demonstrative */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Left Imagery: Input tile */}
-                  <div className="space-y-1.5">
-                    <div className="text-[11px] text-[#1A2129]/70 flex items-center justify-between">
-                      <span>{currentScenario.inputLabel}</span>
-                      <span className="font-mono text-[10px] text-[#28506B]">
-                        256x256 RGB
-                      </span>
-                    </div>
-                    <div className="relative aspect-[4/3] rounded-md overflow-hidden border border-[#CBCFC6] bg-[#1A2129]/5">
-                      <Image
-                        src={currentScenario.inputSrc}
-                        alt={currentScenario.inputLabel}
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 25vw"
-                        className="object-cover"
-                        priority
-                      />
-                      {/* Sub-phase overlay indicator */}
-                      {currentStep === 0 && (
-                        <div className="absolute inset-0 bg-[#28506B]/20 flex items-end p-2 transition-opacity duration-200">
-                          <span className="px-2 py-0.5 rounded-md bg-[#1A2129] text-white text-[10px] font-mono">
-                            Modality: {currentScenario.modality}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Imagery: Visual evidence overlay */}
-                  <div className="space-y-1.5">
-                    <div className="text-[11px] text-[#1A2129]/70 flex items-center justify-between">
-                      <span>{currentScenario.evidenceLabel}</span>
-                      <span className="font-mono text-[10px] text-[#28506B]">
-                        {currentStep >= 2 ? "Differential Map" : "Pending pass"}
-                      </span>
-                    </div>
-                    <div className="relative aspect-[4/3] rounded-md overflow-hidden border border-[#CBCFC6] bg-[#1A2129]/5">
-                      {currentStep >= 2 ? (
-                        <Image
-                          src={currentScenario.evidenceSrc}
-                          alt={currentScenario.evidenceLabel}
-                          fill
-                          sizes="(max-width: 1024px) 50vw, 25vw"
-                          className="object-cover transition-opacity duration-200"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-[#F0F1EC]">
-                          <Cpu className="w-6 h-6 text-[#28506B]/60 mb-2" />
-                          <span className="text-xs text-[#1A2129]/70 font-mono">
-                            Awaiting controller dispatch...
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Evidence-grounded answer or intermediate trace */}
-                <div
-                  className="p-3.5 rounded-md border space-y-1.5"
-                  style={{
-                    backgroundColor: "#FFFFFF",
-                    borderColor: "#CBCFC6",
-                  }}
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium text-[#1A2129]">
-                      {currentStep === 3
-                        ? "Evidence-grounded answer"
-                        : "Active pipeline state"}
-                    </span>
-                    <span className="font-mono text-[11px] text-[#28506B]">
-                      {currentScenario.model}
-                    </span>
-                  </div>
-
-                  {currentStep < 3 ? (
-                    <div className="text-xs text-[#1A2129]/80 font-mono py-1">
-                      {currentStep === 0 && (
-                        <span>
-                          Decoding raster bands, confirming spatial overlap and
-                          radiometric calibration...
-                        </span>
-                      )}
-                      {currentStep === 1 && (
-                        <span>
-                          Task classified as {currentScenario.task} with
-                          confidence score {currentScenario.confidence}.
-                        </span>
-                      )}
-                      {currentStep === 2 && (
-                        <span>
-                          Evaluating tensors via {currentScenario.model} (runtime:{" "}
-                          {currentScenario.latency}).
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-[#1A2129]/90 leading-relaxed">
-                      {currentScenario.answer}
-                    </p>
-                  )}
-                </div>
-
-                {/* Execution trace log */}
-                <div
-                  className="p-3 rounded-md border text-xs space-y-1.5 font-mono"
-                  style={{
-                    backgroundColor: "#F0F1EC",
-                    borderColor: "#CBCFC6",
-                  }}
-                >
-                  <div className="text-[11px] font-sans font-medium text-[#1A2129] flex items-center justify-between">
-                    <span>Execution trace (controller.py):</span>
-                    <span className="text-[10px] text-[#28506B]">
-                      {Math.min(currentStep + 1, 4)} of 4 steps resolved
-                    </span>
-                  </div>
-                  <ul className="space-y-1 text-[11px] text-[#1A2129]/80">
-                    {currentScenario.traceSteps
-                      .slice(0, currentStep + 1)
-                      .map((step, idx) => (
-                        <li key={idx} className="leading-normal flex items-start space-x-1.5">
-                          <Check className="w-3.5 h-3.5 text-[#5A7052] flex-shrink-0 mt-0.5" />
-                          <span>[{idx + 1}] {step}</span>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Action bar pointing to live interactive tool */}
-              <div
-                className="px-4 py-3 border-t flex items-center justify-between text-xs"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className="text-[#1A2129]/70">
-                    Real end-to-end output from the SatQuery AI backend pipeline.
-                  </span>
-                  {currentStep === 3 && (
-                    <button
-                      type="button"
-                      onClick={restartSequence}
-                      className="font-medium text-[#28506B] underline hover:text-[#1A2129] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-                    >
-                      Watch again
-                    </button>
-                  )}
-                </div>
+              <div className="pt-2">
                 <Link
                   href="/app"
-                  className="font-medium text-[#28506B] underline hover:text-[#1A2129] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
+                  className="inline-flex items-center space-x-2 px-5 py-3 rounded-md bg-[#518DB2] text-white text-sm font-semibold hover:bg-[#3D7396] transition-colors duration-150 shadow-lg shadow-[#518DB2]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
                 >
-                  Open live workspace
+                  <span>Launch SatQuery AI</span>
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>
+          )}
+
+          {/* State 2: Atmospheric Micro-Interaction during Approach */}
+          {isObservationState && (
+            <div className="space-y-3 transition-all duration-500 ease-out animate-fade-in">
+              <div className="inline-block px-4 py-2 rounded-md bg-[#080B0F]/80 border border-[#518DB2]/40 backdrop-blur-md font-mono text-sm sm:text-base text-white shadow-xl">
+                &ldquo;What&apos;s changed here?&rdquo;
+              </div>
+              <div className="flex items-center justify-center space-x-2 text-xs font-mono text-[#9BD5E8]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#9BD5E8] animate-ping" />
+                <span>Analyzing multi-temporal sensor pass...</span>
+              </div>
+            </div>
+          )}
+
+          {/* State 3: Launch Entry Stage */}
+          {isLaunchState && (
+            <div className="space-y-6 transition-all duration-500 ease-out animate-fade-in">
+              <div className="space-y-2">
+                <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight">
+                  SatQuery AI
+                </h2>
+                <p className="text-base sm:text-lg text-[#E8EDF2]/90 max-w-[40ch] mx-auto">
+                  Understand satellite imagery through natural language.
+                </p>
+                <p className="text-xs text-[#9BD5E8]/80 font-mono">
+                  Multimodal intelligence for Earth observation.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <Link
+                  href="/app"
+                  className="inline-flex items-center space-x-2 px-6 py-3.5 rounded-md bg-[#518DB2] text-white text-base font-semibold hover:bg-[#3D7396] transition-colors duration-150 shadow-xl shadow-[#518DB2]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
+                >
+                  <span>Launch SatQuery AI</span>
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Scroll Indicator (Visible on initial orbit screen) */}
+        <div className="flex items-center justify-between text-xs text-[#E8EDF2]/60 font-mono pointer-events-auto">
+          <div>
+            <span>EARTH OBSERVATION</span>
           </div>
-        </section>
 
-        {/* ── 2. THE PROBLEM (Scroll-triggered response motion) ─────────────── */}
-        <section
-          id="problem"
-          ref={problemRef}
-          aria-labelledby="problem-heading"
-          className="border-t pt-12 sm:pt-16 space-y-6 motion-reveal"
-          style={{ borderColor: "#CBCFC6" }}
-        >
-          <h2
-            id="problem-heading"
-            className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A2129]"
-          >
-            The problem
-          </h2>
-
-          <div className="space-y-4 max-w-[72ch] text-[#1A2129]/90 text-base sm:text-lg leading-relaxed">
-            <p>
-              Earth observation archives managed by space agencies such as ISRO
-              contain petabytes of optical reflectance and Synthetic Aperture
-              Radar (SAR) imagery. Extracting actionable insights from this data
-              during rapid-response operations (such as flood delineation,
-              agricultural damage assessment, or infrastructure monitoring)
-              currently requires domain analysts to manually pick, configure,
-              and chain separate specialist models.
-            </p>
-            <p>
-              An analyst inspecting an evolving disaster must use one tool for
-              visual question answering, another pipeline for bi-temporal change
-              detection, a third model for bounding-box grounding, and
-              specialized scripts to calibrate and align radar backscatter with
-              multispectral imagery.
-            </p>
-            <p>
-              This fragmentation prevents non-expert decision-makers from asking
-              direct questions about satellite scenes. SatQuery AI addresses
-              Problem Statement 26167 (Space Applications Centre, ISRO) by
-              building a unified, query-driven controller that interprets natural
-              language, selects the appropriate specialist models, executes the
-              analysis, and returns evidence-grounded answers with verifiable
-              visual overlays and execution traces.
-            </p>
-          </div>
-        </section>
-
-        {/* ── 3. THE APPROACH (Staggered response motion on cards) ───────────── */}
-        <section
-          id="approach"
-          ref={approachRef}
-          aria-labelledby="approach-heading"
-          className="border-t pt-12 sm:pt-16 space-y-8 motion-reveal"
-          style={{ borderColor: "#CBCFC6" }}
-        >
-          <div className="space-y-2">
-            <h2
-              id="approach-heading"
-              className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A2129]"
+          {!isLaunchState && (
+            <button
+              type="button"
+              onClick={scrollToLaunch}
+              className="flex items-center space-x-1.5 hover:text-white transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#9BD5E8]"
             >
-              The approach
-            </h2>
-            <p className="text-base text-[#1A2129]/80 max-w-[68ch]">
-              Six specialist capabilities coordinated by an agentic controller.
-              Each capability block below details the underlying model
-              architecture and displays an actual artifact from the project.
-            </p>
-          </div>
+              <span>Scroll to approach</span>
+              <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
+            </button>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Block 1: VQA */}
-            <div
-              className="rounded-md border flex flex-col justify-between overflow-hidden hover:border-[#28506B]/50 transition-colors duration-150"
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#CBCFC6",
-              }}
+          {isLaunchState && (
+            <Link
+              href="/app"
+              className="hover:text-white transition-colors duration-150"
             >
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-[#28506B]">
-                    VQA
-                  </span>
-                  <span className="text-xs text-[#1A2129]/60">Optical</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A2129]">
-                  Visual Question Answering
-                </h3>
-                <p className="text-sm text-[#1A2129]/80 leading-relaxed">
-                  Answers free-form natural-language questions about land use,
-                  structures, and environmental conditions in optical imagery.
-                </p>
-                <div className="text-xs space-y-1 pt-1">
-                  <div className="text-[#1A2129]/70">
-                    Model:{" "}
-                    <span className="font-mono text-[#1A2129]">
-                      Salesforce/blip2-opt-2.7b
-                    </span>
-                  </div>
-                  <div className="text-[#1A2129]/70">
-                    Integration: Stock Hugging Face vision-language checkpoint
-                    with remote-sensing prompt conditioning.
-                  </div>
-                </div>
-              </div>
-              <div
-                className="border-t p-3"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="relative aspect-[16/9] rounded-md overflow-hidden border border-[#CBCFC6]/80 bg-[#1A2129]/5">
-                  <Image
-                    src="/assets/optical_main_hd.png"
-                    alt="Optical satellite tile used as input for visual question answering."
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-[11px] text-[#1A2129]/70 mt-2 font-mono">
-                  Input artifact: multispectral optical tile
-                </p>
-              </div>
-            </div>
+              Ready for analysis &rarr;
+            </Link>
+          )}
 
-            {/* Block 2: Scene Captioning */}
-            <div
-              className="rounded-md border flex flex-col justify-between overflow-hidden hover:border-[#28506B]/50 transition-colors duration-150"
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#CBCFC6",
-              }}
-            >
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-[#28506B]">
-                    CAPTIONING
-                  </span>
-                  <span className="text-xs text-[#1A2129]/60">Optical</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A2129]">
-                  Scene Captioning
-                </h3>
-                <p className="text-sm text-[#1A2129]/80 leading-relaxed">
-                  Generates descriptive paragraphs summarizing visible terrain,
-                  vegetation cover, waterways, and man-made infrastructure.
-                </p>
-                <div className="text-xs space-y-1 pt-1">
-                  <div className="text-[#1A2129]/70">
-                    Model:{" "}
-                    <span className="font-mono text-[#1A2129]">
-                      Salesforce/blip2-opt-2.7b
-                    </span>
-                  </div>
-                  <div className="text-[#1A2129]/70">
-                    Integration: Autoregressive decoder generating structured
-                    scene narratives from visual features.
-                  </div>
-                </div>
-              </div>
-              <div
-                className="border-t p-3"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="relative aspect-[16/9] rounded-md overflow-hidden border border-[#CBCFC6]/80 bg-[#1A2129]/5">
-                  <Image
-                    src="/assets/optical_sample.png"
-                    alt="Optical aerial crop analyzed by the captioning module."
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-[11px] text-[#1A2129]/70 mt-2 font-mono">
-                  Input artifact: sub-meter urban/coastal sample
-                </p>
-              </div>
-            </div>
-
-            {/* Block 3: Grounding */}
-            <div
-              className="rounded-md border flex flex-col justify-between overflow-hidden hover:border-[#28506B]/50 transition-colors duration-150"
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#CBCFC6",
-              }}
-            >
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-[#28506B]">
-                    GROUNDING
-                  </span>
-                  <span className="text-xs text-[#1A2129]/60">Detection</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A2129]">
-                  Text-Guided Grounding
-                </h3>
-                <p className="text-sm text-[#1A2129]/80 leading-relaxed">
-                  Locates user-specified targets (such as aircraft, vessels, or
-                  storage tanks) and returns normalized bounding coordinates.
-                </p>
-                <div className="text-xs space-y-1 pt-1">
-                  <div className="text-[#1A2129]/70">
-                    Model:{" "}
-                    <span className="font-mono text-[#1A2129]">
-                      google/owlvit-base-patch32
-                    </span>
-                  </div>
-                  <div className="text-[#1A2129]/70">
-                    Integration: Open-vocabulary vision transformer detecting
-                    arbitrary text queries without retraining.
-                  </div>
-                </div>
-              </div>
-              <div
-                className="border-t p-3"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="relative aspect-[16/9] rounded-md overflow-hidden border border-[#CBCFC6]/80 bg-[#1A2129]/5">
-                  <Image
-                    src="/assets/change_sample.png"
-                    alt="Grounding sample showing localized feature coordinates."
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-[11px] text-[#1A2129]/70 mt-2 font-mono">
-                  Input artifact: localized target crop
-                </p>
-              </div>
-            </div>
-
-            {/* Block 4: Change Detection */}
-            <div
-              className="rounded-md border flex flex-col justify-between overflow-hidden hover:border-[#B0472E]/50 transition-colors duration-150"
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#CBCFC6",
-              }}
-            >
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-[#B0472E]">
-                    CHANGE_DETECTION
-                  </span>
-                  <span className="text-xs text-[#1A2129]/60">Bi-temporal</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A2129]">
-                  Two-Date Change Detection
-                </h3>
-                <p className="text-sm text-[#1A2129]/80 leading-relaxed">
-                  Computes differential Euclidean distance between two
-                  registered dates to produce a continuous change heatmap.
-                </p>
-                <div className="text-xs space-y-1 pt-1">
-                  <div className="text-[#1A2129]/70">
-                    Model:{" "}
-                    <span className="font-mono text-[#1A2129]">
-                      microsoft/resnet-50
-                    </span>
-                  </div>
-                  <div className="text-[#1A2129]/70">
-                    Integration: Siamese feature extraction with pixel-wise
-                    difference mapping and Otsu thresholding.
-                  </div>
-                </div>
-              </div>
-              <div
-                className="border-t p-3"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="relative aspect-[16/9] rounded-md overflow-hidden border border-[#CBCFC6]/80 bg-[#1A2129]/5">
-                  <Image
-                    src="/assets/change_main_hd.png"
-                    alt="Bi-temporal change detection output artifact with red differential overlay."
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-[11px] text-[#1A2129]/70 mt-2 font-mono">
-                  Output artifact: Siamese differential map
-                </p>
-              </div>
-            </div>
-
-            {/* Block 5: Change-Based Q&A */}
-            <div
-              className="rounded-md border flex flex-col justify-between overflow-hidden hover:border-[#B0472E]/50 transition-colors duration-150"
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#CBCFC6",
-              }}
-            >
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-[#B0472E]">
-                    CHANGE_VQA
-                  </span>
-                  <span className="text-xs text-[#1A2129]/60">Multi-pass</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A2129]">
-                  Change-Based Question Answering
-                </h3>
-                <p className="text-sm text-[#1A2129]/80 leading-relaxed">
-                  Answers natural-language questions regarding what changed,
-                  appeared, or vanished across multi-temporal satellite passes.
-                </p>
-                <div className="text-xs space-y-1 pt-1">
-                  <div className="text-[#1A2129]/70">
-                    Pipeline:{" "}
-                    <span className="font-mono text-[#1A2129]">
-                      Siamese ResNet + BLIP-2
-                    </span>
-                  </div>
-                  <div className="text-[#1A2129]/70">
-                    Integration: Change metrics and differential masks inject
-                    spatial context into the vision-language reasoning engine.
-                  </div>
-                </div>
-              </div>
-              <div
-                className="border-t p-3"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="relative aspect-[16/9] rounded-md overflow-hidden border border-[#CBCFC6]/80 bg-[#1A2129]/5">
-                  <Image
-                    src="/sat/thumb_timeseries.jpg"
-                    alt="Multi-temporal timeline image used for change question answering."
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-[11px] text-[#1A2129]/70 mt-2 font-mono">
-                  Input artifact: multi-temporal timeline pair
-                </p>
-              </div>
-            </div>
-
-            {/* Block 6: SAR Fusion */}
-            <div
-              className="rounded-md border flex flex-col justify-between overflow-hidden hover:border-[#6B5A3A]/50 transition-colors duration-150"
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderColor: "#CBCFC6",
-              }}
-            >
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-medium text-[#6B5A3A]">
-                    SAR_FUSION
-                  </span>
-                  <span className="text-xs text-[#1A2129]/60">Radar+Opt</span>
-                </div>
-                <h3 className="text-lg font-semibold text-[#1A2129]">
-                  SAR and Optical Fusion
-                </h3>
-                <p className="text-sm text-[#1A2129]/80 leading-relaxed">
-                  Combines all-weather, cloud-penetrating synthetic aperture
-                  radar backscatter (VV/VH channels) with optical reflectance.
-                </p>
-                <div className="text-xs space-y-1 pt-1">
-                  <div className="text-[#1A2129]/70">
-                    Model:{" "}
-                    <span className="font-mono text-[#1A2129]">
-                      Dual ResNet-50 + MLP
-                    </span>
-                  </div>
-                  <div className="text-[#1A2129]/70">
-                    Integration: Cross-modal feature concatenation resolving
-                    surface roughness and reflectance simultaneously.
-                  </div>
-                </div>
-              </div>
-              <div
-                className="border-t p-3"
-                style={{
-                  backgroundColor: "#F0F1EC",
-                  borderColor: "#CBCFC6",
-                }}
-              >
-                <div className="relative aspect-[16/9] rounded-md overflow-hidden border border-[#CBCFC6]/80 bg-[#1A2129]/5">
-                  <Image
-                    src="/assets/sar_main_hd.png"
-                    alt="Synthetic aperture radar backscatter artifact."
-                    fill
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-[11px] text-[#1A2129]/70 mt-2 font-mono">
-                  Input artifact: calibrated SAR radar tile
-                </p>
-              </div>
-            </div>
+          <div>
+            <span>PS 26167</span>
           </div>
-        </section>
-
-        {/* ── 4. HOW IT WORKS (Demonstrative pipeline animation) ────────────── */}
-        <section
-          id="pipeline"
-          ref={pipelineRef}
-          aria-labelledby="pipeline-heading"
-          className="border-t pt-12 sm:pt-16 space-y-8 motion-reveal"
-          style={{ borderColor: "#CBCFC6" }}
-        >
-          <div className="space-y-2">
-            <h2
-              id="pipeline-heading"
-              className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A2129]"
-            >
-              How it works
-            </h2>
-            <p className="text-base text-[#1A2129]/80 max-w-[68ch]">
-              The execution pipeline processes user queries through four
-              deterministic stages. Each query is validated, classified,
-              executed across specialist models, and compiled into an auditable
-              result.
-            </p>
-          </div>
-
-          {/* Desktop Connecting Line & Stage Indicators (Draws left-to-right under 1.4s) */}
-          <div className="relative">
-            {/* Desktop progress bar track */}
-            <div className="hidden lg:block absolute top-7 left-8 right-8 h-0.5 bg-[#CBCFC6]/60 z-0">
-              <div
-                className="h-full bg-[#28506B] transition-all duration-300 ease-out"
-                style={{ width: `${pipelineProgress}%` }}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
-              {PIPELINE_STEPS.map((step) => {
-                const isActive = pipelineActiveStep >= step.step;
-                const isCurrent = pipelineActiveStep === step.step;
-
-                return (
-                  <div
-                    key={step.step}
-                    className="p-5 rounded-md border space-y-3 transition-colors duration-200"
-                    style={{
-                      backgroundColor: "#FFFFFF",
-                      borderColor: isActive ? "#28506B" : "#CBCFC6",
-                      boxShadow: isCurrent
-                        ? "0 4px 12px rgba(40, 80, 107, 0.08)"
-                        : "none",
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div
-                        className="w-7 h-7 rounded-md flex items-center justify-center font-mono text-xs font-semibold text-white transition-colors duration-200"
-                        style={{
-                          backgroundColor: isActive ? "#28506B" : "#A88A70",
-                        }}
-                      >
-                        {step.step}
-                      </div>
-                      <span className="font-mono text-[10px] text-[#28506B]">
-                        {step.file}
-                      </span>
-                    </div>
-
-                    <h3 className="text-base font-semibold text-[#1A2129]">
-                      {step.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-[#1A2129]/80 leading-relaxed">
-                      {step.description}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Abbreviated Real Execution Trace (per PRD Section 3.4) */}
-          <div
-            className="p-4 rounded-md border font-mono text-xs space-y-2"
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderColor: "#CBCFC6",
-            }}
-          >
-            <div className="flex items-center justify-between text-[#1A2129]/80 pb-2 border-b border-[#CBCFC6]/60">
-              <span className="font-sans font-semibold text-[#1A2129]">
-                Live Controller Trace (controller.py execution run)
-              </span>
-              <span className="text-[11px] text-[#28506B]">
-                total_latency: 412ms
-              </span>
-            </div>
-            <div className="space-y-1.5 text-[11px] text-[#1A2129]/80">
-              <div className="flex items-start space-x-2">
-                <span className="text-[#28506B]">[00.00s]</span>
-                <span>input_validator.py: verified 2 registered optical GeoTIFF tiles (256x256, 3 bands)</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-[#28506B]">[00.08s]</span>
-                <span>task_classifier.py: query mapped to CHANGE_DETECTION (confidence: 0.94)</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-[#28506B]">[00.12s]</span>
-                <span>controller.py: dispatched Siamese ResNet-50 backbone; extracted layer-4 embeddings</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-[#28506B]">[00.34s]</span>
-                <span>controller.py: computed bi-temporal Euclidean distance; Otsu threshold delta: 9.4%</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-[#5A7052]">[00.41s]</span>
-                <span>report_generator.py: compiled differential overlay, grounding metadata, and PDF report</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 5. TECH STACK (Response motion on hover) ──────────────────────── */}
-        <section
-          id="tech-stack"
-          ref={techStackRef}
-          aria-labelledby="stack-heading"
-          className="border-t pt-12 sm:pt-16 space-y-8 motion-reveal"
-          style={{ borderColor: "#CBCFC6" }}
-        >
-          <div className="space-y-2">
-            <h2
-              id="stack-heading"
-              className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A2129]"
-            >
-              Tech stack
-            </h2>
-            <p className="text-base text-[#1A2129]/80 max-w-[68ch]">
-              A plain record of frameworks, specialist model weights, and
-              geospatial libraries integrated into the active repository.
-            </p>
-          </div>
-
-          <div
-            className="rounded-md border overflow-hidden"
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderColor: "#CBCFC6",
-            }}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr
-                    className="border-b text-xs font-mono text-[#28506B]"
-                    style={{
-                      backgroundColor: "#F0F1EC",
-                      borderColor: "#CBCFC6",
-                    }}
-                  >
-                    <th className="py-3 px-4 font-semibold">Component</th>
-                    <th className="py-3 px-4 font-semibold">Technology / Model</th>
-                    <th className="py-3 px-4 font-semibold">Role in Pipeline</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y" style={{ borderColor: "#CBCFC6" }}>
-                  {[
-                    {
-                      component: "Backend Server",
-                      tech: "FastAPI, Uvicorn, Pydantic",
-                      role: "REST API endpoints for image ingestion, async agent execution, and report downloads.",
-                    },
-                    {
-                      component: "Frontend Client",
-                      tech: "Next.js 14, React 18, TypeScript, Tailwind CSS",
-                      role: "Evaluator showcase site and interactive workspace with evidence overlays and execution tracing.",
-                    },
-                    {
-                      component: "Deep Learning Framework",
-                      tech: "PyTorch, Torchvision",
-                      role: "Model weight initialization, GPU/CPU tensor execution, and differential feature mapping.",
-                    },
-                    {
-                      component: "VQA and Captioning Model",
-                      tech: "Salesforce/blip2-opt-2.7b",
-                      role: "Pretrained vision-language model generating textual answers and descriptive captions from imagery.",
-                    },
-                    {
-                      component: "Text-Guided Grounding",
-                      tech: "google/owlvit-base-patch32",
-                      role: "Open-vocabulary object detector identifying spatial coordinates from arbitrary natural-language terms.",
-                    },
-                    {
-                      component: "Change Detection Backbone",
-                      tech: "microsoft/resnet-50 (Siamese)",
-                      role: "Extracts layer features across registered bi-temporal pairs to calculate continuous Euclidean change distance.",
-                    },
-                    {
-                      component: "Zero-Shot Remote Sensing",
-                      tech: "OpenCLIP ViT-B-32 (BigEarthNet)",
-                      role: "Multimodal embeddings adapted on remote-sensing benchmark data for semantic task classification.",
-                    },
-                    {
-                      component: "Geospatial and I/O",
-                      tech: "rasterio, Pillow, NumPy, SciPy",
-                      role: "GeoTIFF band decoding, coordinate georeferencing, image pre-processing, and morphological filtering.",
-                    },
-                    {
-                      component: "Provenance and Export",
-                      tech: "ReportLab",
-                      role: "Automated PDF report compilation containing input metadata, execution traces, visual evidence, and timestamps.",
-                    },
-                  ].map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-[#F0F1EC]/40 transition-colors duration-150"
-                    >
-                      <td className="py-3 px-4 font-medium text-[#1A2129]">
-                        {row.component}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-xs text-[#1A2129]">
-                        {row.tech}
-                      </td>
-                      <td className="py-3 px-4 text-[#1A2129]/80 text-xs">
-                        {row.role}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 6. TEAM: Omitted per PRD Section 4 and 9 ─────────────────────── */}
-
-        {/* ── 7. FOOTER ─────────────────────────────────────────────────────── */}
-        <footer
-          className="border-t pt-10 pb-16 text-xs text-[#1A2129]/80 space-y-6"
-          style={{ borderColor: "#CBCFC6" }}
-        >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="font-semibold text-sm text-[#1A2129]">
-                SatQuery AI
-              </div>
-              <p className="max-w-[60ch]">
-                Developed for Smart India Hackathon 2026. Problem Statement
-                26167: Space Applications Centre, ISRO.
-              </p>
-            </div>
-
-            <nav className="flex flex-wrap items-center gap-4 text-xs font-mono">
-              <a
-                href="https://github.com/PrakashRishiraj/SatQuery_AI"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#28506B] underline hover:text-[#1A2129] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-              >
-                github.com/PrakashRishiraj/SatQuery_AI
-              </a>
-              <Link
-                href="/app"
-                className="text-[#28506B] underline hover:text-[#1A2129] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-              >
-                /app
-              </Link>
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/docs`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#28506B] underline hover:text-[#1A2129] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#28506B]"
-              >
-                api:8000/docs
-              </a>
-            </nav>
-          </div>
-
-          <div
-            className="border-t pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-[#1A2129]/60"
-            style={{ borderColor: "#CBCFC6" }}
-          >
-            <div>
-              Agentic Vision-Language Remote Sensing Assistant for Optical and
-              SAR Satellite Data
-            </div>
-            <div className="font-mono">PS 26167</div>
-          </div>
-        </footer>
-      </main>
+        </div>
+      </div>
     </div>
   );
 }
