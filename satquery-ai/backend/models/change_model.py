@@ -1,13 +1,24 @@
 """
 SatQuery AI — Change Detection Model
 Siamese deep feature comparison for bi-temporal satellite imagery.
+
+Geospatial note
+---------------
+``detect_changes()`` and ``answer_change_question()`` both accept an optional
+``geo_meta`` keyword argument.  When supplied (an ``ImageGeoMeta`` instance or
+any object with ``.transform``, ``.crs_wkt``, ``.width``, ``.height``
+attributes), detected change regions are enriched with geographic bounding
+boxes via ``geo_utils.convert_regions_to_geo_bbox()``.
+
+When ``geo_meta`` is ``None`` (e.g., plain PNG/JPEG inputs), regions carry
+only normalised pixel coordinates and ``geo_bbox`` is ``None``.
 """
 from __future__ import annotations
 
 import base64
 import io
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -78,14 +89,35 @@ class ChangeDetectionModel:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def detect_changes(self, img1: Image.Image, img2: Image.Image) -> Dict:
+    def detect_changes(
+        self,
+        img1: Image.Image,
+        img2: Image.Image,
+        *,
+        geo_meta: Optional[Any] = None,
+    ) -> Dict:
         """
-        Detect changes between two co-registered images.
+        Detect changes between two spatially aligned images.
 
-        Returns:
-            change_map: np.ndarray [H, W] float32 in [0, 1]
-            changed_regions: list of rough bounding boxes
-            change_percentage: float (0–100)
+        Parameters
+        ----------
+        img1, img2 : PIL.Image
+            The two images to compare.  They **must** be spatially aligned
+            (same pixel grid, same geographic extent) before this call.
+            Use ``utils.geospatial_aligner.align_image_pair()`` upstream.
+        geo_meta : ImageGeoMeta or None
+            If provided, detected change regions will be enriched with
+            geographic bounding boxes (``geo_bbox`` key).  Requires that
+            ``geo_meta.has_geo`` is True and that ``.transform``,
+            ``.crs_wkt``, ``.width``, ``.height`` are set.
+
+        Returns
+        -------
+        dict with keys:
+            change_map        : np.ndarray [H, W] float32 in [0, 1]
+            binary_mask       : np.ndarray [H, W] float32 (0 or 1)
+            changed_regions   : list of dicts (pixel + optional geo_bbox)
+            change_percentage : float (0–100)
         """
         feat1 = self._extract_features(img1)  # [1, C, h, w]
         feat2 = self._extract_features(img2)
@@ -93,7 +125,7 @@ class ChangeDetectionModel:
         # Cosine distance per pixel
         dist_map = self._cosine_distance(feat1, feat2)  # [h, w]
 
-        # Upsample to original input resolution
+        # Upsample to internal resolution
         h, w = self.RESIZE
         dist_resized = F.interpolate(
             dist_map.unsqueeze(0).unsqueeze(0),
@@ -108,6 +140,9 @@ class ChangeDetectionModel:
 
         changed_regions = self._find_regions(binary_mask)
 
+        # ── Geo-coordinate enrichment ─────────────────────────────────────────
+        changed_regions = self._enrich_regions_with_geo(changed_regions, geo_meta, w, h)
+
         return {
             "change_map": dist_resized,
             "binary_mask": binary_mask,
@@ -116,12 +151,31 @@ class ChangeDetectionModel:
         }
 
     def answer_change_question(
-        self, img1: Image.Image, img2: Image.Image, question: str
+        self,
+        img1: Image.Image,
+        img2: Image.Image,
+        question: str,
+        *,
+        geo_meta: Optional[Any] = None,
     ) -> Dict:
         """
         Answer a natural language question about change between two images.
+
+        Parameters
+        ----------
+        img1, img2 : PIL.Image
+            Spatially aligned images (see ``detect_changes`` notes above).
+        question : str
+            Natural language question about the change.
+        geo_meta : ImageGeoMeta or None
+            Passed through to ``detect_changes`` for geographic enrichment.
+
+        Returns
+        -------
+        dict with keys: answer, confidence, change_map_b64, change_percentage,
+        changed_regions (enriched with geo_bbox when geo_meta is available).
         """
-        change_out = self.detect_changes(img1, img2)
+        change_out = self.detect_changes(img1, img2, geo_meta=geo_meta)
         pct = change_out["change_percentage"]
         binary = change_out["binary_mask"]
 
@@ -142,6 +196,7 @@ class ChangeDetectionModel:
             "confidence": round(confidence, 4),
             "change_map_b64": change_b64,
             "change_percentage": pct,
+            "changed_regions": change_out["changed_regions"],
         }
 
     # ── Internal ──────────────────────────────────────────────────────────────
@@ -198,6 +253,48 @@ class ChangeDetectionModel:
             return sorted(regions, key=lambda r: -r["area_pct"])[:10]
         except Exception:
             return []
+
+    @staticmethod
+    def _enrich_regions_with_geo(
+        regions: List[Dict],
+        geo_meta: Optional[Any],
+        image_width: int,
+        image_height: int,
+    ) -> List[Dict]:
+        """
+        Optionally enrich change region dicts with geographic bounding boxes.
+
+        Uses ``geo_utils.convert_regions_to_geo_bbox()`` when geo_meta is
+        available and has a valid CRS + transform.  Each region gains a
+        ``geo_bbox`` key (dict or None).
+        """
+        if not regions:
+            return regions
+
+        # Check if geographic metadata is usable
+        has_geo = (
+            geo_meta is not None
+            and getattr(geo_meta, "has_geo", False)
+            and getattr(geo_meta, "transform", None) is not None
+            and getattr(geo_meta, "crs_wkt", None) is not None
+        )
+
+        if not has_geo:
+            # Mark every region with geo_bbox=None so schema is consistent
+            return [{**r, "geo_bbox": None} for r in regions]
+
+        try:
+            from utils.geo_utils import convert_regions_to_geo_bbox
+            return convert_regions_to_geo_bbox(
+                regions,
+                transform=geo_meta.transform,
+                crs_str=geo_meta.crs_wkt,
+                image_width=image_width,
+                image_height=image_height,
+            )
+        except Exception as exc:
+            logger.warning("Geographic region enrichment failed: %s", exc)
+            return [{**r, "geo_bbox": None} for r in regions]
 
     @staticmethod
     def _change_qa(question: str, pct: float, binary: np.ndarray, regions: List) -> str:

@@ -1,0 +1,26 @@
+# Development and testing requirements
+-r requirements.txt
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+pytest-mock==3.14.0
+httpx==0.28.1
+pytest-httpx==0.31.0
+psutil==6.2.0
+
+# Development tools
+black==24.10.0
+flake8==7.1.1
+mypy==1.13.0
+pre-commit==4.0.1
+
+# Debugging and profiling
+ipython==8.29.0
+jupyter==1.1.1
+memory-profiler==0.61.0
+
+# Documentation
+sphinx==7.3.7
+sphinx-rtd-theme==2.0.0

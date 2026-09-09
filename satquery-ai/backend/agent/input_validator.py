@@ -137,7 +137,7 @@ class InputValidator:
                     resampling=rasterio.enums.Resampling.nearest,
                 ).astype(np.float32)
 
-            modality = self._infer_modality(bands, sample[0], np.dtype(dtype))
+            modality = self._infer_modality(bands, sample[0], np.dtype(dtype), filename=os.path.basename(file_path))
             shape = [height, width, bands]
 
             return ValidationResult(
@@ -167,7 +167,14 @@ class InputValidator:
                 bands = len(img.getbands())
                 arr = np.array(img)
 
-            modality = self._infer_modality(bands, arr[:, :, 0] if arr.ndim == 3 else arr, arr.dtype)
+            modality = self._infer_modality(
+                bands,
+                arr[:, :, 0] if arr.ndim == 3 else arr,
+                arr.dtype,
+                filename=os.path.basename(file_path),
+                mode=mode,
+                full_arr=arr,
+            )
             shape = [height, width, bands]
 
             return ValidationResult(
@@ -188,25 +195,40 @@ class InputValidator:
             )
 
     @staticmethod
-    def _infer_modality(bands: int, sample: np.ndarray, dtype) -> str:
-        """Infer modality from band count, sample values, and dtype."""
-        if bands == 1:
-            # SAR: float with negative values (dB), or high uint16 dynamic range
-            if np.issubdtype(dtype, np.floating):
-                if sample.min() < -5:
-                    return "sar"
+    def _infer_modality(
+        bands: int,
+        sample: np.ndarray,
+        dtype,
+        filename: str = "",
+        mode: str = "",
+        full_arr: Optional[np.ndarray] = None,
+    ) -> str:
+        """Infer modality from band count, sample values, dtype, and metadata."""
+        fn = filename.lower()
+        if any(marker in fn for marker in ("sar", "radar", "s1", "sentinel1", "sentinel-1", "vv", "vh")):
+            return "sar"
+
+        if bands == 1 or mode in ("L", "1", "I;16", "I", "F"):
+            # SAR: float with negative values (dB), high uint16 dynamic range, or standard single-channel radar product
+            if np.issubdtype(dtype, np.floating) and sample.min() < -5:
+                return "sar"
             if np.issubdtype(dtype, np.uint16):
                 dynamic_range = float(sample.max()) - float(sample.min())
-                if dynamic_range > 3000:
+                if dynamic_range > 2000:
                     return "sar"
-            return "optical"
+            # Single-channel grayscale image is standard representation for SAR intensity
+            return "sar" if (mode == "L" or bands == 1) else "optical"
         elif bands == 2:
             return "sar"  # VV + VH Sentinel-1
         elif bands == 3:
-            if np.issubdtype(dtype, np.uint8):
-                return "optical"
-            if np.issubdtype(dtype, np.uint16):
-                return "optical"
+            # Check if 3-band is actually identical RGB channels (grayscale converted to RGB)
+            if full_arr is not None and full_arr.ndim == 3 and full_arr.shape[2] == 3:
+                is_grayscale = (
+                    np.array_equal(full_arr[:, :, 0], full_arr[:, :, 1])
+                    and np.array_equal(full_arr[:, :, 1], full_arr[:, :, 2])
+                )
+                if is_grayscale and ("sar" in fn or "radar" in fn):
+                    return "sar"
             return "optical"
         elif bands >= 4:
             return "multispectral"

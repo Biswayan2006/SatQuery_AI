@@ -1,0 +1,17 @@
+{
+  "domain": "change",
+  "status": "no_data",
+  "mask": null,
+  "change_vqa": null,
+  "comparison": [],
+  "notes": [
+    "mask: skipped \u2014 change-mask dataset not configured (set LEVIR_CD_DIR).",
+    "change-vqa: skipped \u2014 CDVQA dataset not configured (set CDVQA_DIR).",
+    "skipped: neither change-mask (LEVIR-CD) nor CDVQA configured. Set LEVIR_CD_DIR and/or CDVQA_DIR."
+  ],
+  "provenance": {
+    "git_commit": "68386f85b04eed842856474d936b926899d1cc54",
+    "dataset_version": null,
+    "datasets": []
+  }
+}

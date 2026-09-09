@@ -11,6 +11,7 @@ import type { AnalysisResponse } from "@/types";
 const mix = (v: string, pct: number) => `color-mix(in srgb, ${v} ${pct}%, transparent)`;
 const TASK_LABELS: Record<string, { label: string; color: string; bg: string; border: string }> = {
   SINGLE_VQA:         { label: "Visual Q&A",         color: "var(--accent)", bg: mix("var(--accent)", 13), border: mix("var(--accent)", 32) },
+  LAND_COVER_CLASSIFICATION: { label: "Land-cover Classification", color: "var(--veg)", bg: mix("var(--veg)", 13), border: mix("var(--veg)", 32) },
   CAPTIONING:         { label: "Scene Caption",      color: "var(--water)",  bg: mix("var(--water)", 13),  border: mix("var(--water)", 32) },
   GROUNDING:          { label: "Object Grounding",   color: "var(--veg)",    bg: mix("var(--veg)", 13),    border: mix("var(--veg)", 32) },
   CHANGE_VQA:         { label: "Change Q&A",         color: "var(--sar)",    bg: mix("var(--sar)", 13),    border: mix("var(--sar)", 32) },
@@ -59,6 +60,22 @@ export default function ResultDisplay({ result }: Props) {
           icon: <Zap className="w-3 h-3" />,
         }}
       />
+
+      {!result.is_georeferenced && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg"
+          style={{
+            background: "color-mix(in srgb, var(--warning) 12%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--warning) 30%, transparent)",
+            color: "var(--warning)",
+          }}
+        >
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="text-[11px]">
+            Non-georeferenced imagery detected: Applied CV feature alignment fallback.
+          </span>
+        </div>
+      )}
 
       <EvidenceRow>
         {/* Confidence metric */}

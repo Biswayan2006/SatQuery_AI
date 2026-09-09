@@ -1,0 +1,15 @@
+{
+  "domain": "captioning",
+  "status": "no_data",
+  "dataset": "vrsbench",
+  "metrics": {},
+  "comparison": [],
+  "notes": [
+    "skipped: captioning dataset not configured (set VRSBENCH_DIR)."
+  ],
+  "provenance": {
+    "git_commit": "68386f85b04eed842856474d936b926899d1cc54",
+    "dataset_version": null,
+    "datasets": []
+  }
+}

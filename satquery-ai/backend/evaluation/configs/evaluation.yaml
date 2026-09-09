@@ -1,0 +1,154 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# SatQuery AI — Reproducible Evaluation Configuration
+# One config for every domain runner (python -m evaluation.<domain>.run).
+#
+# PATHS ARE NOT HARDCODED IN CODE. Every dataset root and checkpoint below is
+# either set here or supplied via an environment variable using the
+# ${VAR} or ${VAR:-default} syntax, resolved by evaluation/common/config.py.
+# A blank / unset value → that dataset or variant is SKIPPED and reported as
+# absent (never fabricated).
+#
+# Example (bash):
+#   export VRSBENCH_DIR=/data/VRSBench
+#   export RSVQA_DIR=/data/RSVQA-LR
+#   export VQA_ADAPTED_CKPT=checkpoints/vqa/best
+#   export RS_CLIP_CKPT=checkpoints/rs_clip/rs_clip_best.pt
+#   python -m evaluation.vqa.run --config evaluation/configs/evaluation.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Where all JSON + Markdown reports are written.
+output_dir: "${EVAL_OUTPUT_DIR:-./evaluation/results}"
+
+seed: 42
+device: "auto"            # "auto" | "cuda" | "cpu"
+
+# ── VQA ────────────────────────────────────────────────────────────────────────
+vqa:
+  model:
+    name: "Salesforce/blip-vqa-base"
+    cache_dir: "${MODEL_CACHE_DIR:-./model_cache}"
+  generation:
+    max_new_tokens: 20
+    num_beams: 3
+  training:            # reused by the VQA collator / seed only
+    max_text_length: 64
+    seed: 42
+  evaluation:
+    num_error_examples: 30
+  variants:
+    # baseline = pretrained BLIP; adapted = fine-tuned checkpoint dir.
+    adapted_checkpoint: "${VQA_ADAPTED_CKPT:-}"
+  datasets:
+    vrsbench:
+      enabled: true
+      data_dir: "${VRSBENCH_DIR:-}"
+      image_size: 224
+      max_samples: null
+    rsvqa:
+      enabled: true
+      data_dir: "${RSVQA_DIR:-}"
+      file_prefix: null
+      image_subdir: null
+      image_ext: ".tif"
+      max_samples: null
+
+# ── Captioning ───────────────────────────────────────────────────────────────
+captioning:
+  model:
+    name: "${CAPTION_MODEL:-Salesforce/blip-image-captioning-base}"
+    cache_dir: "${MODEL_CACHE_DIR:-./model_cache}"
+  variants:
+    # No remote-sensing captioning checkpoint exists in the system → adapted
+    # is honestly reported as n/a unless one is supplied here.
+    adapted_checkpoint: "${CAPTION_ADAPTED_CKPT:-}"
+  datasets:
+    vrsbench:
+      enabled: true
+      data_dir: "${VRSBENCH_DIR:-}"
+      image_size: 224
+      max_samples: 500
+
+# ── Grounding ──────────────────────────────────────────────────────────────────
+grounding:
+  model:
+    name: "${GROUNDING_MODEL:-google/owlvit-base-patch32}"
+    cache_dir: "${MODEL_CACHE_DIR:-./model_cache}"
+  iou_thresholds: [0.5, 0.75]
+  variants:
+    adapted_checkpoint: "${GROUNDING_ADAPTED_CKPT:-}"
+  datasets:
+    vrsbench:
+      enabled: true
+      data_dir: "${VRSBENCH_DIR:-}"
+      max_samples: 500
+
+# ── Retrieval (RS-CLIP) ─────────────────────────────────────────────────────────
+retrieval:
+  model:
+    name: "${CLIP_MODEL:-ViT-B-32}"
+    pretrained: "openai"
+    cache_dir: "${MODEL_CACHE_DIR:-./model_cache}"
+  k_values: [1, 5, 10]
+  variants:
+    # baseline = OpenAI CLIP weights; adapted = RS-CLIP fine-tuned checkpoint.
+    adapted_checkpoint: "${RS_CLIP_CKPT:-}"
+  datasets:
+    vrsbench:
+      enabled: true
+      data_dir: "${VRSBENCH_DIR:-}"
+      image_size: 224
+      max_samples: 1000
+
+# ── Change detection ────────────────────────────────────────────────────────────
+change:
+  model:
+    name: "${CHANGE_MODEL:-microsoft/resnet-50}"
+    cache_dir: "${MODEL_CACHE_DIR:-./model_cache}"
+    # baseline threshold; the "adapted" variant can sweep to an improved one.
+    threshold: 0.35
+  variants:
+    adapted_threshold: "${CHANGE_ADAPTED_THRESHOLD:-}"
+  datasets:
+    # A change-mask dataset (e.g. LEVIR-CD): dir with A/ B/ label/ subfolders.
+    levir_cd:
+      enabled: true
+      data_dir: "${LEVIR_CD_DIR:-}"
+      max_samples: 200
+    # Bi-temporal change VQA (CDVQA).
+    cdvqa:
+      enabled: true
+      data_dir: "${CDVQA_DIR:-}"
+      max_samples: 500
+
+# ── SAR-optical fusion ──────────────────────────────────────────────────────────
+fusion:
+  model:
+    vqa_model_name: "Salesforce/blip-vqa-base"
+    cache_dir: "${MODEL_CACHE_DIR:-./model_cache}"
+  variants:
+    # baseline = untrained fusion adapter; adapted = trained fusion checkpoint.
+    adapted_checkpoint: "${SAR_FUSION_CKPT:-}"
+  datasets:
+    bigearthnet:
+      enabled: true
+      data_dir: "${BIGEARTHNET_DIR:-}"
+      image_size: 120
+      max_samples: 200
+
+# ── Routing ──────────────────────────────────────────────────────────────────
+# Uses a curated gold set shipped with the framework (not a benchmark's test
+# labels) — evaluation/routing/routing_eval_set.json. Override to point at your
+# own labelled router set.
+routing:
+  eval_set: "${ROUTING_EVAL_SET:-evaluation/routing/routing_eval_set.json}"
+  use_semantic_router: false     # keyword+structural only by default (offline)
+
+# ── Confidence calibration ──────────────────────────────────────────────────────
+confidence:
+  # Consumes (confidence, correct) pairs emitted by the VQA run, or re-runs VQA.
+  source: "${CONFIDENCE_SOURCE:-vqa}"
+  n_bins: 10
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"

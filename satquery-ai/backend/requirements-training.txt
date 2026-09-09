@@ -1,0 +1,7 @@
+# Training and fine-tuning dependencies. Install after requirements.txt.
+-r requirements.txt
+datasets==3.2.0
+scikit-learn==1.6.0
+matplotlib==3.9.3
+geopandas==1.0.1
+shapely==2.0.6

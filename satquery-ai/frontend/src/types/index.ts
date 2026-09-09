@@ -11,6 +11,7 @@ export interface ImageUploadResponse {
   file_size_kb: number;
   is_geotiff: boolean;
   crs: string | null;
+  modality_source?: "detected" | "user";
 }
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
@@ -30,6 +31,23 @@ export interface BoundingBox {
   score: number;
 }
 
+export interface ChangeRegion {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  area_pct: number;
+  pixel_bbox: number[] | null;
+  geo_bbox: { lat_min: number; lon_min: number; lat_max: number; lon_max: number } | null;
+}
+
+export interface ToolEvidence {
+  tool: string;
+  status: string;
+  output?: Record<string, unknown>;
+  reason?: string;
+}
+
 export interface ExecutionSummary {
   selected_task: string;
   task_confidence: number;
@@ -37,6 +55,11 @@ export interface ExecutionSummary {
   parameters: Record<string, unknown>;
   processing_time_ms: number;
   steps: string[];
+  alignment?: Record<string, unknown> | null;
+  warnings?: string[] | null;
+  plan?: Record<string, unknown>;
+  intent?: Record<string, unknown> | null;
+  step_trace?: Array<Record<string, unknown>>;
 }
 
 export interface AnalysisResponse {
@@ -44,11 +67,19 @@ export interface AnalysisResponse {
   task: string;
   answer: string;
   confidence: number;
-  visual_evidence: string | null;  // base64 PNG
-  change_map: string | null;        // base64 PNG
-  fusion_map: string | null;        // base64 PNG
+  confidence_type: string;
+  confidence_components?: Record<string, unknown>;
+  uncertainty: string;
+  requires_verification: boolean;
+  is_degraded: boolean;
+  is_georeferenced: boolean;
+  visual_evidence: string | null;
+  change_map: string | null;
+  fusion_map: string | null;
   grounding_boxes: BoundingBox[] | null;
   change_percentage: number | null;
+  change_regions: ChangeRegion[] | null;
+  tool_evidence: ToolEvidence[] | null;
   execution_summary: ExecutionSummary;
 }
 
@@ -82,6 +113,7 @@ export interface HealthResponse {
 
 export type TaskType =
   | "SINGLE_VQA"
+  | "LAND_COVER_CLASSIFICATION"
   | "CAPTIONING"
   | "GROUNDING"
   | "CHANGE_VQA"

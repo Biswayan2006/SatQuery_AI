@@ -1,0 +1,45 @@
+{
+  "description": "SatQuery AI — curated in-house gold set for router (TaskClassifier) evaluation.",
+  "provenance": "Hand-authored by the SatQuery team to exercise the six TaskTypes. NOT derived from any benchmark's hidden test labels; safe to ship and inspect.",
+  "task_types": ["SINGLE_VQA", "CAPTIONING", "GROUNDING", "CHANGE_VQA", "CHANGE_DESCRIPTION", "SAR_OPTICAL_FUSION"],
+  "samples": [
+    {"query": "Describe this satellite image.", "num_images": 1, "modalities": ["optical"], "gold_task": "CAPTIONING"},
+    {"query": "Give a detailed caption for this aerial photo.", "num_images": 1, "modalities": ["optical"], "gold_task": "CAPTIONING"},
+    {"query": "Provide an overview of what this scene contains.", "num_images": 1, "modalities": ["optical"], "gold_task": "CAPTIONING"},
+    {"query": "Summarize the contents of this remote sensing image.", "num_images": 1, "modalities": ["optical"], "gold_task": "CAPTIONING"},
+    {"query": "What does this image show?", "num_images": 1, "modalities": ["optical"], "gold_task": "CAPTIONING"},
+    {"query": "Tell me about this region.", "num_images": 1, "modalities": ["optical"], "gold_task": "CAPTIONING"},
+
+    {"query": "How many buildings are visible in this image?", "num_images": 1, "modalities": ["optical"], "gold_task": "SINGLE_VQA"},
+    {"query": "Is there a river in this scene?", "num_images": 1, "modalities": ["optical"], "gold_task": "SINGLE_VQA"},
+    {"query": "What type of land cover is dominant here?", "num_images": 1, "modalities": ["optical"], "gold_task": "SINGLE_VQA"},
+    {"query": "Are there any roads in this area?", "num_images": 1, "modalities": ["optical"], "gold_task": "SINGLE_VQA"},
+    {"query": "Which crop is grown in these fields?", "num_images": 1, "modalities": ["optical"], "gold_task": "SINGLE_VQA"},
+    {"query": "Is the area affected by flood water?", "num_images": 1, "modalities": ["optical"], "gold_task": "SINGLE_VQA"},
+
+    {"query": "Where is the airport in this image?", "num_images": 1, "modalities": ["optical"], "gold_task": "GROUNDING"},
+    {"query": "Locate all the ships in the harbor.", "num_images": 1, "modalities": ["optical"], "gold_task": "GROUNDING"},
+    {"query": "Find the bridge in this scene.", "num_images": 1, "modalities": ["optical"], "gold_task": "GROUNDING"},
+    {"query": "Draw a bounding box around the stadium.", "num_images": 1, "modalities": ["optical"], "gold_task": "GROUNDING"},
+    {"query": "Point out the solar panels.", "num_images": 1, "modalities": ["optical"], "gold_task": "GROUNDING"},
+    {"query": "Show me the parking lot.", "num_images": 1, "modalities": ["optical"], "gold_task": "GROUNDING"},
+
+    {"query": "What changed between these two images?", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_VQA"},
+    {"query": "What is the difference between the before and after images?", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_VQA"},
+    {"query": "Is there new construction between the two dates?", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_VQA"},
+    {"query": "How many buildings appeared between the two acquisitions?", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_VQA"},
+    {"query": "Did the water body shrink over time?", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_VQA", "notes": "hard case: no strong change keyword; tests structural handling"},
+
+    {"query": "Describe the changes between these two images.", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_DESCRIPTION"},
+    {"query": "Summarize the changes over the observed period.", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_DESCRIPTION"},
+    {"query": "Provide a change detection report for this region.", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_DESCRIPTION"},
+    {"query": "Explain the transformation of the landscape between the two dates.", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_DESCRIPTION"},
+    {"query": "Describe the changes in the urban area over time.", "num_images": 2, "modalities": ["optical"], "gold_task": "CHANGE_DESCRIPTION"},
+
+    {"query": "Fuse the SAR and optical images to analyze the terrain.", "num_images": 2, "modalities": ["sar", "optical"], "gold_task": "SAR_OPTICAL_FUSION"},
+    {"query": "Combine the radar backscatter with the optical view.", "num_images": 2, "modalities": ["sar", "optical"], "gold_task": "SAR_OPTICAL_FUSION"},
+    {"query": "Use SAR to complement the optical image for flood mapping.", "num_images": 2, "modalities": ["sar", "optical"], "gold_task": "SAR_OPTICAL_FUSION"},
+    {"query": "Analyze this scene using both radar and multispectral data.", "num_images": 2, "modalities": ["sar", "multispectral"], "gold_task": "SAR_OPTICAL_FUSION"},
+    {"query": "Perform multimodal fusion of the two sensor images.", "num_images": 2, "modalities": ["sar", "optical"], "gold_task": "SAR_OPTICAL_FUSION"}
+  ]
+}

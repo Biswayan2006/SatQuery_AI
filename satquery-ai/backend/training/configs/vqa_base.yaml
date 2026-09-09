@@ -1,0 +1,116 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# SatQuery AI — Remote-Sensing VQA Fine-tuning Configuration
+# Adapts a BLIP / BLIP-2 VQA model to remote-sensing imagery.
+#
+# Usage:
+#   python training/train_vqa.py --config training/configs/vqa_base.yaml
+#
+# NOTE: Dataset locations are NOT hardcoded. Set data_dir per dataset below,
+# or override via environment variables referenced in your deployment.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Model ────────────────────────────────────────────────────────────────────
+model:
+  # Any BLIP / BLIP-2 VQA model accepted by transformers.
+  #   "Salesforce/blip-vqa-base"   — small, fast, trainable on CPU/modest GPU
+  #   "Salesforce/blip2-opt-2.7b"  — large, LoRA strongly recommended
+  name: "Salesforce/blip-vqa-base"
+  # HuggingFace cache directory (matches the app's model_cache_dir).
+  cache_dir: "./model_cache"
+
+# ── LoRA / Parameter-efficient fine-tuning ────────────────────────────────────
+# LoRA is the DEFAULT. Full-model training only happens when lora.enabled=false
+# AND training.allow_full_finetune=true (a deliberate two-key opt-in).
+lora:
+  enabled: true
+  rank: 8
+  alpha: 16
+  dropout: 0.05
+  # Substrings matched against Linear module names. Defaults target the
+  # attention query/value projections, which is standard for VLM LoRA.
+  target_modules: ["query", "value", "key", "dense"]
+
+# ── Training ─────────────────────────────────────────────────────────────────
+training:
+  output_dir: "./checkpoints/vqa"
+  epochs: 5
+  batch_size: 8
+  # Effective batch size = batch_size × gradient_accumulation_steps
+  gradient_accumulation_steps: 4
+  learning_rate: 1.0e-5
+  weight_decay: 0.05
+  lr_scheduler: "cosine"      # "cosine" | "linear" | "none"
+  warmup_ratio: 0.05
+  # Mixed precision: "fp16" | "bf16" | "none" (auto-disabled on CPU)
+  mixed_precision: "fp16"
+  max_grad_norm: 1.0
+  # Max text length for questions AND answers (dynamic padding within this cap)
+  max_text_length: 64
+  num_workers: 2
+  pin_memory: true
+  seed: 42
+  device: "auto"              # "auto" | "cuda" | "cpu"
+  log_interval: 20
+  eval_interval: 1            # validate every N epochs
+  # SAFETY: full fine-tuning of the whole model is refused unless BOTH
+  # lora.enabled=false and this flag are set. Prevents accidental full runs.
+  allow_full_finetune: false
+
+# ── Checkpointing ─────────────────────────────────────────────────────────────
+checkpoint:
+  save_every: 1               # save every N epochs
+  keep_last: 3                # keep only N most-recent epoch checkpoints (0=all)
+  best_filename: "best"       # sub-directory name for the best checkpoint
+
+# ── Resume ────────────────────────────────────────────────────────────────────
+resume:
+  from_checkpoint: null       # path to a checkpoint dir to resume training
+
+# ── Early stopping ──────────────────────────────────────────────────────────
+early_stopping:
+  enabled: true
+  monitor: "vqa_accuracy"     # metric key from validation output
+  mode: "max"
+  patience: 3
+  min_delta: 0.001
+
+# ── Datasets ─────────────────────────────────────────────────────────────────
+# Each enabled dataset is loaded per-split. Datasets shipping native
+# train/val/test files never leak test data into training.
+datasets:
+  vrsbench:
+    enabled: false
+    data_dir: "/data/VRSBench"     # <-- set your path; not hardcoded in code
+    image_size: 224
+    max_samples: null
+  rsvqa:
+    enabled: false
+    data_dir: "/data/RSVQA-LR"     # <-- set your path
+    # Optional: override auto-detection of the split-file prefix / image dir.
+    file_prefix: null              # e.g. "LR_split_"
+    image_subdir: null             # e.g. "Images_LR"
+    image_ext: ".tif"
+    max_samples: null
+
+# If a dataset lacks native splits, splits are derived deterministically.
+split:
+  # Only applied to datasets without native train/val/test files.
+  val_fraction: 0.1
+  test_fraction: 0.1
+
+# ── Generation (for validation decoding) ───────────────────────────────────────
+generation:
+  max_new_tokens: 20
+  num_beams: 3
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+evaluation:
+  # Cap validation samples per epoch for speed (null = all).
+  max_val_samples: 1000
+  # Number of error examples to record in the report.
+  num_error_examples: 30
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
+  log_file: null

@@ -1,0 +1,16 @@
+{
+  "domain": "vqa",
+  "status": "no_data",
+  "dataset": null,
+  "variants": {},
+  "comparison": [],
+  "confidence_pairs": [],
+  "notes": [
+    "skipped: no VQA dataset configured. Set VRSBENCH_DIR and/or RSVQA_DIR (see evaluation/configs/evaluation.yaml)."
+  ],
+  "provenance": {
+    "git_commit": "68386f85b04eed842856474d936b926899d1cc54",
+    "dataset_version": null,
+    "datasets": []
+  }
+}

@@ -140,7 +140,7 @@ function CommandBar({
         </button>
       </div>
 
-      {/* ── Example query suggestions (focus-triggered dropdown) ──────────── */}
+      {/* ── Example query suggestions (visible before typing) ─────────────── */}
       <AnimatePresence>
         {showSuggestions && (
           <motion.div
@@ -181,6 +181,27 @@ function CommandBar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {!loading && query.trim().length === 0 && !focused && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
+          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Try a query:</span>
+          {EXAMPLE_QUERIES.slice(0, 4).map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => pickSuggestion(q)}
+              className="rounded-md px-2.5 py-1 text-[11px] transition-colors"
+              style={{
+                background: "var(--bg-raised)",
+                border: "1px solid var(--border)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -366,9 +387,6 @@ function RealtimeCard({
     return parts.join("  ");
   };
 
-  const img0Meta = buildMeta(img0);
-  const img1Meta = buildMeta(img1);
-
   // Output slot
   const outputB64 = result?.change_map ?? result?.visual_evidence ?? result?.fusion_map ?? null;
   const outputLabel = result?.change_map
@@ -455,24 +473,36 @@ function RealtimeCard({
           {(hasImages || loading) && !showCompare && (
             <div className="p-4 space-y-3">
               <div className="grid grid-cols-3 gap-2.5">
-                <ImageSlot
-                  label="Optical Image"
-                  sublabel={img0Meta}
-                  src={img0?.previewUrl ?? null}
-                  loading={img0?.uploading ?? false}
-                  error={img0?.error ?? null}
-                  tint="var(--water)"
-                  icon={<Eye className="w-5 h-5" style={{ color: "var(--water)" }} />}
-                />
-                <ImageSlot
-                  label="SAR Image"
-                  sublabel={img1Meta}
-                  src={img1?.previewUrl ?? null}
-                  loading={img1?.uploading ?? false}
-                  error={img1?.error ?? null}
-                  tint="var(--sar)"
-                  icon={<Radio className="w-5 h-5" style={{ color: "var(--sar)" }} />}
-                />
+                {(() => {
+                  const sarImage = images.find((i) => i.uploadResponse?.modality === "sar");
+                  const opticalImage = images.find((i) => i.uploadResponse?.modality !== "sar");
+                  const optSrc = opticalImage?.previewUrl ?? null;
+                  const sarSrc = sarImage?.previewUrl ?? null;
+                  const optMeta = opticalImage ? buildMeta(opticalImage) : undefined;
+                  const sarMeta = sarImage ? buildMeta(sarImage) : undefined;
+                  return (
+                    <>
+                      <ImageSlot
+                        label="Optical Image"
+                        sublabel={optMeta}
+                        src={optSrc}
+                        loading={opticalImage?.uploading ?? false}
+                        error={opticalImage?.error ?? null}
+                        tint="var(--water)"
+                        icon={<Eye className="w-5 h-5" style={{ color: "var(--water)" }} />}
+                      />
+                      <ImageSlot
+                        label="SAR Image"
+                        sublabel={sarMeta}
+                        src={sarSrc}
+                        loading={sarImage?.uploading ?? false}
+                        error={sarImage?.error ?? null}
+                        tint="var(--sar)"
+                        icon={<Radio className="w-5 h-5" style={{ color: "var(--sar)" }} />}
+                      />
+                    </>
+                  );
+                })()}
                 <ImageSlot
                   label={outputLabel}
                   sublabel={outputMeta}
@@ -546,7 +576,7 @@ function AnalyzeDataCard({
   images, onAddImage, onRemoveImage,
 }: {
   images: UploadedImage[];
-  onAddImage: (file: File) => void;
+  onAddImage: (file: File, modality: "auto" | "optical" | "sar" | "multispectral") => void;
   onRemoveImage: (index: number) => void;
 }) {
   return (
@@ -1136,14 +1166,14 @@ export default function HomePage() {
   }, []);
 
   /* Image upload — identical logic to original */
-  const handleAddImage = useCallback(async (file: File) => {
+  const handleAddImage = useCallback(async (file: File, modality: "auto" | "optical" | "sar" | "multispectral") => {
     const previewUrl = URL.createObjectURL(file);
     setImages((prev) => [
       ...prev,
       { file, previewUrl, uploadResponse: null, uploading: true, error: null },
     ]);
     try {
-      const resp = await uploadImage(file);
+      const resp = await uploadImage(file, modality);
       setImages((prev) =>
         prev.map((img) =>
           img.previewUrl === previewUrl

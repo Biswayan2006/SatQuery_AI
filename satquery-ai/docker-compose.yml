@@ -7,16 +7,22 @@ services:
       dockerfile: Dockerfile
     container_name: satquery-backend
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
     environment:
       - DEVICE=${DEVICE:-auto}
-      - UPLOAD_DIR=/app/uploads
-      - MODEL_CACHE_DIR=/app/model_cache
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - UPLOAD_DIR=/app/data/uploads
+      - REPORTS_DIR=/app/data/reports
+      - TEMP_DIR=/app/data/temp
+      - MODEL_CACHE_DIR=/app/data/cache
+      - ALLOW_MOCK_MODE=${ALLOW_MOCK_MODE:-false}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - uploads_data:/app/uploads
-      - model_cache:/app/model_cache
+      - uploads_data:/app/data/uploads
+      - reports_data:/app/data/reports
+      - model_cache:/app/data/cache
     deploy:
       resources:
         reservations:
@@ -50,3 +56,4 @@ services:
 volumes:
   uploads_data:
   model_cache:
+  reports_data:

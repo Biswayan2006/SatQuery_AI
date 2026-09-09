@@ -17,10 +17,11 @@ export function useImageUpload() {
   const [uploading, setUploading] = useState(false);
 
   const uploadImage = useCallback(
-    async (file: File): Promise<ImageUploadResponse> => {
+    async (file: File, modality: string = "auto"): Promise<ImageUploadResponse> => {
       setUploading(true);
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("modality", modality);
 
       try {
         const { data } = await axios.post<ImageUploadResponse>(

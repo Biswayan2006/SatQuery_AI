@@ -1,298 +1,121 @@
 # SatQuery AI
 
-**An Interactive Vision-Language Assistant for Multimodal Remote Sensing Image Analysis through Text Queries**
+SatQuery AI is an agentic vision-language API for multimodal remote-sensing image analysis. It accepts PNG, JPEG, TIFF, and GeoTIFF inputs, routes queries to specialist models and deterministic tools, and can produce visual evidence and PDF reports.
 
-> Developed for the ISRO/SAC Smart India Hackathon 2026 Challenge
+## Features
 
----
-
-## Overview
-
-SatQuery AI is an agentic vision-language system that lets users query satellite and aerial imagery in plain English. Instead of relying on a single generic model, it automatically selects and executes the right specialist model based on the query and input images — returning evidence-grounded answers, visual outputs, and downloadable reports.
-
-Most existing remote sensing AI tools are built for a single predefined task. SatQuery AI breaks that pattern with a query-driven agentic framework that handles:
-
-- Single optical/multispectral or SAR image analysis
-- Bi-temporal image pairs for change detection and change-based Q&A
-- Co-registered optical–SAR pairs for cross-modal fusion analysis
-
----
-
-## Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **Visual Question Answering** | Ask natural language questions about a satellite image |
-| **Scene Captioning** | Generate detailed land-cover descriptions |
-| **Text-Guided Grounding** | Locate objects and regions described in a query |
-| **Change Detection** | Detect, quantify, and describe changes between two dates |
-| **SAR–Optical Fusion** | Extract complementary information from radar + optical pairs |
-| **Agentic Orchestration** | Automatic task routing — no manual model selection needed |
-| **Execution Trace** | Auditable log of selected task, models used, and parameters |
-| **PDF Reports** | Downloadable analysis reports with visual evidence |
-| **BigEarthNet Adaptation** | CLIP fine-tuned on BigEarthNet for remote sensing representations |
-
----
+- Image upload with content validation and modality detection
+- VQA, captioning, grounding, change analysis, and SAR-optical fusion
+- Agentic task routing with execution traces and confidence reporting
+- Geospatial alignment and geographic change regions where metadata permits
+- Model registry with lazy/background loading and explicit readiness states
+- PDF reports, health checks, structured errors, rate limiting, and API-key auth
 
 ## Architecture
 
-```
-User Query + Image(s)
-        │
-        ▼
-  Input Validator
-  (modality detection, format & compatibility check)
-        │
-        ▼
-  Task Classifier
-  (VQA / Captioning / Grounding / Change VQA / Change Description / SAR Fusion)
-        │
-        ▼
-  Agentic Controller
-  (plan → execute → integrate)
-        │
-   ┌────┴──────────┐
-   ▼               ▼
-Specialist      Report
- Models        Generator
-```
+HTTP request -> FastAPI -> routes -> AgenticController -> task classifier -> model registry/tools -> AnalysisResponse -> PDF report.
 
-### Specialist Models
-
-| Module | Base Model | Task |
-|--------|-----------|------|
-| VQA | `Salesforce/blip-vqa-base` | Remote sensing Q&A |
-| Captioning | `Salesforce/blip-image-captioning-base` | Scene description |
-| Grounding | `google/owlvit-base-patch32` | Object localization |
-| Change Detection | Siamese ResNet-50 features | Temporal change analysis |
-| SAR Fusion | Dual ResNet-50 + MLP fusion | Cross-modal analysis |
-| RS Adaptation | OpenCLIP fine-tuned on BigEarthNet | Image-text alignment |
-
----
+The backend uses one Uvicorn worker by default. Large models are loaded once per process and inference concurrency is bounded; extra workers can duplicate model memory and are not recommended for GPU deployments.
 
 ## Supported Inputs
 
-| Input Type | Description |
-|-----------|-------------|
-| Single image | Optical, multispectral, or SAR — for VQA, captioning, grounding |
-| Bi-temporal pair | Two images of the same area at different times — for change analysis |
-| SAR–Optical pair | Co-registered radar + optical — for fusion analysis |
+PNG, JPEG, TIFF, and GeoTIFF. Single images support optical, multispectral, and SAR workflows. Two images support bi-temporal change analysis and compatible SAR-optical fusion. Uploaded data and reports belong in external runtime volumes, not Git.
 
-**Formats:** GeoTIFF / TIFF (with geospatial metadata), PNG, JPEG
+## Supported Tasks
 
----
+VQA, image captioning, text-guided grounding, change detection, change VQA/change description, and SAR-optical fusion. The classifier may select a task automatically, or `task_hint` can be supplied.
 
-## Representative Queries
+## Models
 
-```
-"Describe the land-cover and major objects visible in this image."
-"Highlight the water body referred to in the query."
-"What changed between these two dates, and where did the change occur?"
-"Use the optical and SAR images together to identify built-up and water-covered regions."
-"Has the built-up area increased, decreased, or remained unchanged?"
-```
+Model identifiers and cache paths are environment-configurable. The registry reports `loading`, `ready`, or `failed` through `/api/models` and `/api/health`. Model weights are downloaded from Hugging Face or mounted from an external cache. `ALLOW_MOCK_MODE=false` is the production default; failed real models never silently become production inference.
 
----
+## Remote-Sensing Adaptation
 
-## Project Structure
+The repository includes RS-CLIP, SAR-fusion, VQA fine-tuning, training configs, evaluation runners, and notebooks. Datasets and checkpoints are external inputs configured by path and excluded from Git and Docker builds.
 
-```
-satquery-ai/
-├── backend/
-│   ├── main.py                  # FastAPI app entry point
-│   ├── config.py                # Pydantic settings
-│   ├── requirements.txt
-│   ├── agent/
-│   │   ├── controller.py        # Agentic orchestration (plan→execute→integrate)
-│   │   ├── task_classifier.py   # Query → TaskType classification
-│   │   ├── input_validator.py   # Image validation & modality detection
-│   │   └── report_generator.py  # PDF report generation
-│   ├── models/
-│   │   ├── registry.py          # Thread-safe model registry
-│   │   ├── vqa_model.py         # BLIP VQA
-│   │   ├── captioning_model.py  # BLIP captioning
-│   │   ├── grounding_model.py   # OWL-ViT grounding
-│   │   ├── change_model.py      # Siamese change detection
-│   │   ├── sar_fusion_model.py  # SAR-optical fusion
-│   │   └── _mock.py             # Graceful fallback during model loading
-│   ├── training/
-│   │   ├── bigearthnet_dataset.py  # BigEarthNet PyTorch dataset
-│   │   ├── finetune_clip.py        # OpenCLIP fine-tuning script
-│   │   └── evaluate.py             # Benchmark evaluation
-│   └── utils/
-│       ├── image_utils.py       # GeoTIFF/PIL loading, RGB composites
-│       ├── visualization.py     # Change maps, overlays, fusion viz
-│       └── geo_utils.py         # Geospatial utilities
-├── frontend/
-│   └── src/
-│       ├── app/page.tsx         # Main three-panel UI
-│       ├── components/          # ImageUpload, QueryInput, ResultDisplay, etc.
-│       └── hooks/useAnalysis.ts # API hooks
-├── notebooks/
-│   ├── 01_bigearthnet_exploration.ipynb
-│   ├── 02_clip_finetuning.ipynb
-│   └── 03_benchmark_evaluation.ipynb
-├── docker-compose.yml
-└── .env.example
-```
+## API
 
----
+With API-key authentication enabled, send `X-API-Key` on non-health requests.
 
-## Quick Start
+- `POST /api/upload`: multipart upload under configured size and format limits
+- `POST /api/analyze`: analyze one or two uploaded `image_ids`
+- `GET /api/report/{session_id}`: download a generated PDF report
+- `GET /api/health`: readiness, storage, GPU, registry, and queue status
+- `GET /api/models`: model IDs, tasks, devices, source, and readiness
+- `/docs` and `/redoc`: OpenAPI documentation
 
-### Prerequisites
+Errors use `{ "error": { "code": "...", "message": "..." }, "request_id": "..." }`.
 
-- Python 3.10–3.13
-- Node.js 18+
-- 8 GB RAM minimum (16 GB recommended)
-- NVIDIA GPU optional (CUDA 12.1) — CPU works but is slower
+## Installation
 
-### Option 1 — Docker (recommended)
+Copy `.env.example` to `.env` and replace every placeholder. For local development:
 
-```bash
-git clone https://github.com/yourorg/satquery-ai
-cd satquery-ai
-cp .env.example .env
-docker compose up --build
-```
-
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-
-### Option 2 — Local Development
-
-**Backend** (Terminal 1):
-
-```bash
-cd satquery-ai/backend
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Mac/Linux
-source venv/bin/activate
-
-# Install PyTorch first (CPU)
-pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cpu
-
-# Or CUDA 12.1
-pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu121
-
-# Install remaining dependencies
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# Copy env config
-cp ../.env.example .env
-
-# Start server
+# Optional: copy backend/.env.example to backend/.env for local paths/auth defaults
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-**Frontend** (Terminal 2):
-
-```bash
-cd satquery-ai/frontend
-npm install
-npm run dev
-```
-
-> **Note:** Models download from HuggingFace on first run (~3 GB total). The server starts immediately and returns mock responses until models are ready. Check `GET /api/health` — `models_loaded: 5` means all models are ready.
-
----
-
-## API Reference
-
-### `POST /api/upload`
-Upload a single image.
-```json
-// Response
-{
-  "image_id": "uuid",
-  "modality": "optical",
-  "shape": [512, 512, 3],
-  "valid": true,
-  "message": "Image validated"
-}
-```
-
-### `POST /api/analyze`
-Run agentic analysis on 1 or 2 uploaded images.
-```json
-// Request
-{
-  "image_ids": ["uuid1", "uuid2"],
-  "query": "What changed between these two images?"
-}
-
-// Response
-{
-  "task": "CHANGE_VQA",
-  "answer": "Approximately 23% of the scene changed...",
-  "confidence": 0.84,
-  "change_map": "<base64 PNG>",
-  "execution_summary": {
-    "selected_task": "CHANGE_VQA",
-    "models_used": ["ChangeDetectionModel", "RemoteSensingVQA"],
-    "processing_time_ms": 1840.2
-  }
-}
-```
-
-### `GET /api/report/{session_id}`
-Download the PDF analysis report.
-
-### `GET /api/health`
-Returns service status and number of models loaded.
-
-### `GET /api/models`
-Lists all registered models and their load status.
-
----
-
-## BigEarthNet Fine-tuning
-
-```bash
-cd satquery-ai/backend
-python training/finetune_clip.py \
-  --data-dir /path/to/BigEarthNet \
-  --output-dir ./checkpoints \
-  --epochs 10 \
-  --batch-size 64 \
-  --model-name ViT-B-32
-```
-
----
+Install `requirements-dev.txt` for tests. Install `requirements-training.txt` or `requirements-evaluation.txt` only for those workflows. Keep datasets, checkpoints, uploads, reports, and model caches outside the repository.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and configure:
+Important settings include `ENVIRONMENT`, `SECRET_KEY`, `API_KEY_ENABLED`, `API_KEYS`, `ADMIN_API_KEYS`, `CORS_ORIGINS`, `UPLOAD_DIR`, `REPORTS_DIR`, `TEMP_DIR`, `MODEL_CACHE_DIR`, `MAX_IMAGE_SIZE_MB`, `DEVICE`, `ALLOW_MOCK_MODE`, `MAX_CONCURRENT_INFERENCE`, and the model-name variables. See `.env.example` for the complete template. List settings use JSON array syntax with pydantic-settings.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEVICE` | `auto` | `auto`, `cuda`, or `cpu` |
-| `VQA_MODEL_NAME` | `Salesforce/blip-vqa-base` | HuggingFace model ID for VQA |
-| `CAPTIONING_MODEL_NAME` | `Salesforce/blip-image-captioning-base` | HuggingFace model ID for captioning |
-| `GROUNDING_MODEL_NAME` | `google/owlvit-base-patch32` | HuggingFace model ID for grounding |
-| `MODEL_CACHE_DIR` | `./model_cache` | Where to cache downloaded models |
-| `UPLOAD_DIR` | `./uploads` | Where uploaded images are stored |
-| `MAX_IMAGE_SIZE_MB` | `50` | Maximum upload size |
-| `CORS_ORIGINS` | `http://localhost:3000` | Allowed frontend origins |
+## Local Development
 
----
+Use `backend/Dockerfile.dev` or a local Python environment. Development may set `API_KEY_ENABLED=false` and `ALLOW_MOCK_MODE=true`; those settings must not be copied to production.
 
-## Evaluation Benchmarks
+## Docker
 
-| Benchmark | Task | Split |
-|-----------|------|-------|
-| RSVQA | Single-image VQA | Test |
-| VRSBench | Captioning & Grounding | Test |
-| CDVQA | Change-based VQA | Test |
-| ISRO/SAC dataset | Cartosat-2S + RISAT SAR pairs | Evaluation set |
+The production image uses `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime`, a single Uvicorn worker, a non-root user, and mounted runtime volumes. From the repository root:
 
----
+```powershell
+Copy-Item .env.example .env
+# Edit .env and replace secrets/placeholders
+docker compose up --build -d
+curl http://localhost:8000/api/health
+```
+
+The frontend is optional; the backend is the deployment unit for API-only installations.
+
+## DigitalOcean Deployment
+
+Use a Droplet for CPU workloads or a GPU Droplet for BLIP/OWL-ViT workloads. App Platform is suitable only after validating memory, startup time, persistent model-cache behavior, and latency; it is not the default for persistent GPU inference. See [DEPLOYMENT.md](backend/DEPLOYMENT.md) for firewall, volumes, HTTPS, restart, health-check, and backup guidance.
+
+## GPU Requirements
+
+CPU mode is supported but slow. GPU memory requirements depend on selected models; BLIP-2 and fusion configurations require materially more memory than change detection or CLIP. Use one worker and `MAX_CONCURRENT_INFERENCE=1` unless load testing proves a larger safe value.
+
+## Model Downloads
+
+Models download into `MODEL_CACHE_DIR` on first load. In deployment, mount a persistent volume at `/app/data/cache`; do not bake weights into Git or the image. Private Hugging Face models use `HUGGINGFACE_TOKEN` supplied only through the deployment environment.
+
+For local runs, `backend/.env.example` uses `./model_cache`, so downloaded weights remain in `backend/model_cache` across restarts. This directory is ignored by Git.
+
+## Evaluation
+
+Evaluation runners live under `backend/evaluation` and require external datasets. Install evaluation requirements and configure dataset paths; no benchmark dataset is bundled.
+
+## Project Structure
+
+`backend/` contains the FastAPI runtime, tests, training, and evaluation code. `frontend/` contains the Next.js client. `notebooks/` contains research workflows. `backend/requirements*.txt` separates runtime, development, training, and evaluation dependencies.
+
+## Security
+
+Use long random secrets, API keys, restricted CORS origins, HTTPS, upload limits, named runtime volumes, and a reverse proxy with appropriate request and inference timeouts. Do not commit `.env`, credentials, model files, datasets, uploads, reports, or logs. Review [SECURITY.md](backend/SECURITY.md) before exposing the service publicly.
+
+## Limitations
+
+Model quality and latency depend on selected weights, device, and remote-sensing adaptation. Geographic outputs require valid CRS/transform metadata. Full inference and clean Docker smoke tests require model downloads, compatible hardware, and a working Docker daemon.
+
+## Troubleshooting
+
+Check `/api/health` and `/api/models` first. `loading` means startup model initialization is still running; `failed` means a model or cache/device configuration needs attention. A `503` health response means no registered model is usable. Inspect structured container logs without exposing uploaded content or secrets.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+See [LICENSE](LICENSE) if present in the repository.

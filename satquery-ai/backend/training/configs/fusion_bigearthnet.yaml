@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# SatQuery AI — SAR-Optical Fusion Training Configuration
+# Trains the SAR encoder + cross-modal fusion adapter on paired BigEarthNet
+# Sentinel-1 (VV/VH) + Sentinel-2 imagery. The BLIP vision tower and language
+# model stay FROZEN — only the fusion adapter is trained (parameter-efficient).
+#
+# Usage:
+#   python training/train_fusion.py --config training/configs/fusion_bigearthnet.yaml
+#
+# Dry run (proves gradients + checkpoint, NOT a trained model):
+#   python training/train_fusion.py --config training/configs/fusion_bigearthnet.yaml \
+#       --max-samples 4 --epochs 1
+#
+# NOTE: data_dir is NOT hardcoded in code — set it here or via your deployment.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Model ────────────────────────────────────────────────────────────────────
+model:
+  # BLIP (not BLIP-2) is required: only BLIP exposes the visual-token injection
+  # pathway (vision_model → text_encoder → text_decoder) used for fusion.
+  name: "Salesforce/blip-vqa-base"
+  cache_dir: "./model_cache"
+
+# ── Training ─────────────────────────────────────────────────────────────────
+training:
+  output_dir: "./checkpoints/fusion"
+  epochs: 10
+  batch_size: 8
+  learning_rate: 1.0e-4
+  weight_decay: 0.05
+  max_grad_norm: 1.0
+  num_workers: 0
+  seed: 42
+  device: "auto"              # "auto" | "cuda" | "cpu"
+  # Combined-objective loss weights. The optional QA loss is only added when a
+  # paired-QA dataset is supplied (not configured here → skipped, no fabrication).
+  loss_weights:
+    contrastive: 1.0          # SAR↔optical modality alignment (InfoNCE)
+    classification: 1.0       # land-cover (BigEarthNet-43) on fused tokens
+
+# ── Datasets ─────────────────────────────────────────────────────────────────
+# BigEarthNet with use_sar=True yields paired S1 (VV/VH) + S2 + 43-label vectors.
+# Train/val/test separation is deterministic (MD5 80/10/10) inside the adapter,
+# so test patches never leak into training.
+datasets:
+  bigearthnet:
+    enabled: true
+    data_dir: "/data/BigEarthNet"   # <-- set your path; not hardcoded in code
+    image_size: 120
+    max_samples: null               # null = full split
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
+  log_file: null

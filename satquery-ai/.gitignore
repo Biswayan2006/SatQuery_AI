@@ -1,0 +1,57 @@
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python tooling and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+backend/venv/
+
+# Runtime data and model artifacts
+data/
+uploads/
+reports/
+temp/
+cache/
+model_cache/
+backend/uploads/
+backend/reports/
+backend/temp/
+backend/model_cache/
+backend/calibration/
+datasets/
+checkpoints/
+training/outputs/
+evaluation/results/generated/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+
+# Frontend dependencies and build output
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE and OS files
+.vscode/
+.idea/
+.claude/
+.trae/
+.DS_Store
+Thumbs.db
+
+# Logs and generated reports
+*.log
+*.pdf

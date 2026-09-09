@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import re
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -22,12 +23,89 @@ BOX_COLORS = [
     (255, 128, 0), (0, 180, 128),
 ]
 
+# ── Query-to-label mapping for remote sensing ────────────────────────────────
+# Maps natural-language queries to OWL-ViT-compatible object labels.
+_RS_LABEL_MAP: Dict[str, List[str]] = {
+    # Infrastructure
+    "road":       ["road", "street", "highway", "path"],
+    "building":   ["building", "house", "structure"],
+    "bridge":     ["bridge"],
+    "railway":    ["railway", "train track", "railroad"],
+    "airport":    ["airport", "runway"],
+    "parking":    ["parking lot", "parking"],
+    # Water
+    "water":      ["water", "river", "lake", "pond", "stream"],
+    "river":      ["river", "stream", "waterway"],
+    "lake":       ["lake", "pond", "water body"],
+    "coast":      ["coast", "shoreline", "beach"],
+    # Vegetation
+    "tree":       ["tree", "forest", "vegetation"],
+    "forest":     ["forest", "trees", "woodland"],
+    "field":      ["field", "farmland", "agriculture", "crop"],
+    "crop":       ["crop", "farmland", "agriculture"],
+    "grass":      ["grass", "grassland", "lawn"],
+    # Urban
+    "urban":      ["building", "structure", "house"],
+    "residential":["house", "building", "residential area"],
+    "industrial": ["factory", "warehouse", "industrial building"],
+    "commercial": ["commercial building", "shop", "store"],
+    # Land cover
+    "bare":       ["bare ground", "dirt", "soil", "sand"],
+    "sand":       ["sand", "dirt", "bare ground"],
+    "rock":       ["rock", "boulder", "cliff"],
+    "snow":       ["snow", "ice"],
+    "cloud":      ["cloud"],
+    # SAR-specific
+    "ship":       ["ship", "boat", "vessel"],
+    "vessel":     ["ship", "boat", "vessel"],
+    "car":        ["car", "vehicle", "truck"],
+    "vehicle":    ["car", "truck", "vehicle"],
+    # Flood
+    "flood":      ["water", "flood", "flooding"],
+    "flooding":   ["water", "flood"],
+    "damage":     ["damage", "debris", "ruins"],
+}
+
+
+def _extract_labels(query: str) -> List[str]:
+    """
+    Extract OWL-ViT-compatible object labels from a natural-language query.
+
+    Tries keyword matching first, falls back to extracting noun phrases.
+    Returns 1-4 labels for parallel detection.
+    """
+    q = query.lower().strip()
+
+    # 1. Direct keyword match
+    for key, labels in _RS_LABEL_MAP.items():
+        if key in q:
+            return labels[:3]
+
+    # 2. Extract simple noun phrases (2-3 word chunks)
+    # Remove common verbs / filler
+    cleaned = re.sub(
+        r"\b(locate|detect|find|show|identify|where|are|the|in|this|image|satellite|map|please|can|you|see|what|is)\b",
+        "", q, flags=re.IGNORECASE
+    )
+    words = [w.strip() for w in cleaned.split() if len(w.strip()) > 2]
+    if words:
+        # Take first 2-4 meaningful words as label candidates
+        candidates = [" ".join(words[:min(4, len(words))])]
+        # Also try individual words if they are meaningful nouns
+        for w in words[:4]:
+            if w not in candidates:
+                candidates.append(w)
+        return candidates[:4]
+
+    # 3. Fallback — pass the raw query
+    return [query]
+
 
 class RemoteSensingGrounding:
     """
     Open-vocabulary grounding using OWL-ViT.
 
-    Returns bounding boxes in normalised [x1, y1, x2, y2] format (0–1).
+    Returns bounding boxes in normalised [x1, y1, x2, y2] format (0-1).
     Also produces an annotated image with drawn boxes.
     """
 
@@ -36,7 +114,7 @@ class RemoteSensingGrounding:
         model_name: str = "google/owlvit-base-patch32",
         device: str = "cpu",
         cache_dir: Optional[str] = None,
-        score_threshold: float = 0.2,
+        score_threshold: float = 0.1,
     ):
         self.model_name = model_name
         self.device = device
@@ -69,7 +147,7 @@ class RemoteSensingGrounding:
 
         Args:
             image: PIL RGB image
-            text_query: Object description, e.g. "water body", "building", "road"
+            text_query: Natural-language query, e.g. "Locate the roads in this image"
 
         Returns:
             dict with keys: boxes, labels, scores, annotated_image (base64)
@@ -80,8 +158,15 @@ class RemoteSensingGrounding:
         image = self._preprocess(image)
         w, h = image.size
 
+        # Extract OWL-ViT-compatible labels from the query
+        labels_to_detect = _extract_labels(text_query)
+        logger.info(
+            "Grounding query=%r -> labels=%s (threshold=%.2f)",
+            text_query, labels_to_detect, self.score_threshold,
+        )
+
         # OWL-ViT expects a list of texts per image
-        texts = [[text_query]]
+        texts = [labels_to_detect]
 
         try:
             inputs = self.processor(text=texts, images=image, return_tensors="pt")
@@ -102,25 +187,26 @@ class RemoteSensingGrounding:
             scores = results["scores"].cpu().numpy()
             labels_idx = results["labels"].cpu().numpy()
 
+            # Map label indices back to our text labels
+            label_names = [labels_to_detect[i] for i in labels_idx]
+
             # Normalise to [0, 1]
             boxes_norm = boxes_abs.copy()
             boxes_norm[:, [0, 2]] /= w
             boxes_norm[:, [1, 3]] /= h
             boxes_norm = np.clip(boxes_norm, 0.0, 1.0)
 
-            labels = [text_query] * len(scores)
-
             # Sort by score descending
             order = np.argsort(scores)[::-1]
             boxes_norm = boxes_norm[order].tolist()
             scores = scores[order].tolist()
-            labels = [labels[i] for i in order]
+            label_names = [label_names[i] for i in order]
 
-            annotated_b64 = self._draw_boxes(image, boxes_abs[order], labels, scores)
+            annotated_b64 = self._draw_boxes(image, boxes_abs[order], label_names, scores)
 
             return {
                 "boxes": boxes_norm,
-                "labels": labels,
+                "labels": label_names,
                 "scores": [round(float(s), 4) for s in scores],
                 "annotated_image": annotated_b64,
             }

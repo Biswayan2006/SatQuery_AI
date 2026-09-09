@@ -98,22 +98,12 @@ class ReportGenerator:
         ]
 
         for label, value in rows:
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.set_text_color(80, 80, 80)
-            pdf.cell(50, 6, f"{label}:", new_x="RIGHT")
-            pdf.set_font("Helvetica", "", 9)
-            pdf.set_text_color(40, 40, 40)
-            pdf.multi_cell(0, 6, self._safe(str(value)))
+            self._kv_row(pdf, label, value)
 
         # Parameters
         if es.parameters:
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.set_text_color(80, 80, 80)
-            pdf.cell(50, 6, "Parameters:", new_x="RIGHT")
-            pdf.set_font("Helvetica", "", 9)
-            pdf.set_text_color(40, 40, 40)
             param_str = ", ".join(f"{k}={v}" for k, v in es.parameters.items())
-            pdf.multi_cell(0, 6, param_str)
+            self._kv_row(pdf, "Parameters", param_str)
         pdf.ln(4)
 
         # ── Change Percentage ────────────────────────────────────────────────
@@ -165,6 +155,23 @@ class ReportGenerator:
         pdf.line(self.MARGIN, pdf.get_y(), self.PAGE_WIDTH - self.MARGIN, pdf.get_y())
         pdf.ln(3)
 
+    def _kv_row(self, pdf, label: str, value: str, label_w: float = 50):
+        """Render a 'label: value' row where the value wraps safely.
+
+        Resets x to the left margin and pins the value cell's exit position
+        (new_x=LMARGIN, new_y=NEXT). Without this, each multi_cell leaves x at
+        the right margin, so the next row's multi_cell(0, ...) computes a
+        zero/negative width and fpdf raises "Not enough horizontal space to
+        render a single character".
+        """
+        pdf.set_x(self.MARGIN)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(label_w, 6, self._safe(f"{label}:"), new_x="RIGHT", new_y="TOP")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(40, 40, 40)
+        pdf.multi_cell(0, 6, self._safe(str(value)), new_x="LMARGIN", new_y="NEXT")
+
     def _embed_image(self, pdf, title: str, b64: str):
         """Embed a base64-encoded image into the PDF."""
         try:
@@ -183,10 +190,29 @@ class ReportGenerator:
     def _timestamp() -> str:
         return time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
 
+    # Common Unicode punctuation the core Helvetica font cannot render, mapped
+    # to safe ASCII so answers keep their meaning instead of turning into "?".
+    _UNICODE_MAP = {
+        "—": "-", "–": "-",       # em / en dash
+        "‘": "'", "’": "'",       # smart single quotes
+        "“": '"', "”": '"',       # smart double quotes
+        "…": "...", "•": "-",     # ellipsis, bullet
+        " ": " ",                      # non-breaking space
+    }
+
     @staticmethod
-    def _safe(text: str) -> str:
-        """Strip characters outside Latin-1 range to avoid Helvetica font errors."""
-        return text.encode("latin-1", errors="replace").decode("latin-1")
+    def _safe(text) -> str:
+        """Make text renderable by fpdf's core Latin-1 fonts.
+
+        Maps common Unicode punctuation to ASCII, then drops anything still
+        outside Latin-1 (e.g. emoji) rather than substituting '?'.
+        """
+        if text is None:
+            return ""
+        text = str(text)
+        for uni, ascii_eq in ReportGenerator._UNICODE_MAP.items():
+            text = text.replace(uni, ascii_eq)
+        return text.encode("latin-1", errors="ignore").decode("latin-1")
 
     def _fallback_text(self, response, session_id: str) -> bytes:
         """Minimal text-based fallback if fpdf2 unavailable."""

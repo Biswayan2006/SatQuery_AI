@@ -1,0 +1,124 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# SatQuery AI — RS-CLIP Training Configuration
+# Fine-tunes an OpenCLIP backbone on remote-sensing image-text pairs.
+#
+# Usage:
+#   python training/train_clip.py --config training/configs/rs_clip_base.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Model ────────────────────────────────────────────────────────────────────
+model:
+  # Any model name accepted by open_clip.create_model_and_transforms()
+  name: "ViT-B-32"
+  # OpenCLIP pretrained weights tag (use "openai" for CLIP weights)
+  pretrained: "openai"
+  # Embedding dimension exposed by this backbone (auto-detected at runtime)
+  embed_dim: null          # null = auto-detect from model
+
+# ── LoRA / Parameter-efficient fine-tuning ────────────────────────────────────
+lora:
+  # Whether to apply LoRA adapters instead of full fine-tuning
+  enabled: true
+  # LoRA rank (higher = more capacity, more parameters)
+  rank: 8
+  # LoRA scaling factor (alpha / rank = effective scaling)
+  alpha: 16
+  # Dropout on LoRA layers
+  dropout: 0.05
+  # Which sub-modules to apply LoRA to (regex matched against param names)
+  # "attention" targets all attention projection layers in ViT
+  target_modules: ["attn.in_proj", "attn.out_proj"]
+
+# ── Training ─────────────────────────────────────────────────────────────────
+training:
+  output_dir: "./checkpoints/rs_clip"
+  epochs: 15
+  batch_size: 64
+  # Effective batch size = batch_size × gradient_accumulation_steps
+  gradient_accumulation_steps: 4
+  learning_rate: 5.0e-6
+  weight_decay: 0.1
+  # Cosine annealing LR schedule
+  lr_scheduler: "cosine"
+  warmup_steps: 200
+  # Mixed precision: "fp16" | "bf16" | "none"
+  mixed_precision: "fp16"
+  # Max gradient norm for clipping
+  max_grad_norm: 1.0
+  # Clamp logit_scale to prevent instability (ln(100) ≈ 4.605)
+  logit_scale_max: 4.6052
+  # Log every N optimizer steps
+  log_interval: 20
+  # Validate every N epochs
+  eval_interval: 1
+  # Number of dataloader workers
+  num_workers: 4
+  # Pin memory when using CUDA
+  pin_memory: true
+  # Seed for reproducibility
+  seed: 42
+  # Device: "auto" | "cuda" | "cpu"
+  device: "auto"
+
+# ── Early stopping ────────────────────────────────────────────────────────────
+early_stopping:
+  enabled: true
+  # Metric to monitor (must be present in validation output)
+  monitor: "val_r1"
+  # "max" = higher is better; "min" = lower is better
+  mode: "max"
+  patience: 4
+  min_delta: 0.001
+
+# ── Checkpointing ─────────────────────────────────────────────────────────────
+checkpoint:
+  # Save a checkpoint every N epochs (0 = only save best)
+  save_every: 1
+  # Keep only the N most recent checkpoints (0 = keep all)
+  keep_last: 3
+  # Name of the best-model symlink / file
+  best_filename: "rs_clip_best.pt"
+
+# ── Resume ────────────────────────────────────────────────────────────────────
+resume:
+  # Set to a checkpoint path to resume training
+  from_checkpoint: null
+
+# ── Datasets ─────────────────────────────────────────────────────────────────
+datasets:
+  # ── BigEarthNet ─────────────────────────────────────────────────────────────
+  bigearthnet:
+    enabled: true
+    # Root directory containing BigEarthNet-S2/ and optionally BigEarthNet-S1/
+    data_dir: "/data/BigEarthNet"
+    # Use SAR (S1) bands in addition to optical (S2)
+    use_sar: false
+    image_size: 120
+    # Fraction of data to use (null = use all)
+    max_samples: null
+    # Sampling weight when mixing multiple datasets
+    mix_weight: 1.0
+
+  # ── VRSBench ─────────────────────────────────────────────────────────────────
+  vrsbench:
+    enabled: false
+    # Root directory containing images/ and annotations.json
+    data_dir: "/data/VRSBench"
+    image_size: 224
+    max_samples: null
+    mix_weight: 1.0
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+evaluation:
+  # Number of samples to use for validation (null = all)
+  max_val_samples: 2000
+  # Retrieval metrics to compute
+  recall_at_k: [1, 5, 10]
+  # Run zero-shot classification (requires label set)
+  zero_shot_classification: true
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level: "INFO"
+  # Set to a file path to also log to a file
+  log_file: null

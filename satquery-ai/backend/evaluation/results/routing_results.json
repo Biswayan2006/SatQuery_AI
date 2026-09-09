@@ -1,0 +1,198 @@
+{
+  "domain": "routing",
+  "status": "ok",
+  "n_samples": 4,
+  "router": {
+    "accuracy": 1.0,
+    "per_task": {
+      "SINGLE_VQA": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "CAPTIONING": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 4
+      },
+      "GROUNDING": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "CHANGE_VQA": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "CHANGE_DESCRIPTION": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "SAR_OPTICAL_FUSION": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      }
+    },
+    "macro": {
+      "precision": 0.1667,
+      "recall": 0.1667,
+      "f1": 0.1667
+    },
+    "weighted": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "confusion_matrix": {
+      "labels": [
+        "SINGLE_VQA",
+        "CAPTIONING",
+        "GROUNDING",
+        "CHANGE_VQA",
+        "CHANGE_DESCRIPTION",
+        "SAR_OPTICAL_FUSION"
+      ],
+      "matrix": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "n_samples": 4
+  },
+  "baseline_majority_class": {
+    "label": "CAPTIONING",
+    "accuracy": 1.0,
+    "macro_f1": 0.1667
+  },
+  "comparison": [
+    {
+      "model": "TaskClassifier",
+      "dataset": "routing_eval_set",
+      "metric": "accuracy",
+      "baseline": 1.0,
+      "satquery": 1.0,
+      "improvement": 0.0,
+      "higher_is_better": true
+    },
+    {
+      "model": "TaskClassifier",
+      "dataset": "routing_eval_set",
+      "metric": "macro_f1",
+      "baseline": 0.1667,
+      "satquery": 0.1667,
+      "improvement": 0.0,
+      "higher_is_better": true
+    }
+  ],
+  "per_sample": [
+    {
+      "query": "Describe this satellite image.",
+      "num_images": 1,
+      "modalities": [
+        "optical"
+      ],
+      "gold": "CAPTIONING",
+      "pred": "CAPTIONING",
+      "confidence": 0.8,
+      "correct": 1
+    },
+    {
+      "query": "Give a detailed caption for this aerial photo.",
+      "num_images": 1,
+      "modalities": [
+        "optical"
+      ],
+      "gold": "CAPTIONING",
+      "pred": "CAPTIONING",
+      "confidence": 0.9,
+      "correct": 1
+    },
+    {
+      "query": "Provide an overview of what this scene contains.",
+      "num_images": 1,
+      "modalities": [
+        "optical"
+      ],
+      "gold": "CAPTIONING",
+      "pred": "CAPTIONING",
+      "confidence": 0.6,
+      "correct": 1
+    },
+    {
+      "query": "Summarize the contents of this remote sensing image.",
+      "num_images": 1,
+      "modalities": [
+        "optical"
+      ],
+      "gold": "CAPTIONING",
+      "pred": "CAPTIONING",
+      "confidence": 0.7,
+      "correct": 1
+    }
+  ],
+  "notes": [
+    "Baseline = majority-class predictor (always 'CAPTIONING').",
+    "SatQuery = keyword+structural TaskClassifier (offline; semantic router disabled).",
+    "Evaluated on 4 curated in-house gold queries (not benchmark test labels)."
+  ],
+  "provenance": {
+    "git_commit": "68386f85b04eed842856474d936b926899d1cc54",
+    "dataset_version": null,
+    "datasets": []
+  }
+}

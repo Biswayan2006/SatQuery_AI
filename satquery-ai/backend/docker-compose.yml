@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  satquery-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - API_KEY_ENABLED=${API_KEY_ENABLED:-true}
+      - ALLOW_MOCK_MODE=${ALLOW_MOCK_MODE:-false}
+      - MAX_CONCURRENT_INFERENCE=${MAX_CONCURRENT_INFERENCE:-2}
+      - INFERENCE_TIMEOUT_SECONDS=${INFERENCE_TIMEOUT_SECONDS:-300}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-60}
+      - UPLOAD_TTL_HOURS=${UPLOAD_TTL_HOURS:-24}
+      - REPORT_TTL_HOURS=${REPORT_TTL_HOURS:-72}
+      - TEMP_TTL_HOURS=${TEMP_TTL_HOURS:-1}
+    volumes:
+      - uploads:/app/data/uploads
+      - model_cache:/app/data/cache
+      - reports:/app/data/reports
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  satquery-backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8001:8000"
+    environment:
+      - ENVIRONMENT=development
+      - API_KEY_ENABLED=false
+      - MAX_CONCURRENT_INFERENCE=1
+      - INFERENCE_TIMEOUT_SECONDS=60
+      - RATE_LIMIT_PER_MINUTE=1000
+    volumes:
+      - uploads:/app/data/uploads
+      - model_cache:/app/data/cache
+      - reports:/app/data/reports
+      - .:/app
+    restart: unless-stopped
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  uploads:
+  model_cache:
+  reports:

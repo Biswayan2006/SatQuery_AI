@@ -1,0 +1,15 @@
+{
+  "domain": "grounding",
+  "status": "no_data",
+  "dataset": "grounding",
+  "metrics": {},
+  "comparison": [],
+  "notes": [
+    "skipped: grounding dataset not configured (set VRSBENCH_DIR or a grounding manifest directory)."
+  ],
+  "provenance": {
+    "git_commit": "68386f85b04eed842856474d936b926899d1cc54",
+    "dataset_version": null,
+    "datasets": []
+  }
+}
