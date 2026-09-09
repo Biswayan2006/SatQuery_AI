@@ -9,7 +9,7 @@ import NotificationsPopover from "@/components/layout/NotificationsPopover";
 import ProjectSelector from "@/components/layout/ProjectSelector";
 
 const NAV_ITEMS = [
-  { href: "/",         label: "Analyze New Query"  },
+  { href: "/app",      label: "Analyze New Query"  },
   { href: "/history",  label: "Execution History"  },
   { href: "/datasets", label: "Datasets"           },
   { href: "/reports",  label: "Reports"            },

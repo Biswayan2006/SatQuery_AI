@@ -15,7 +15,7 @@ import ProjectSelector from "@/components/layout/ProjectSelector";
 
 /* ── Navigation items ───────────────────────────────────────────────────── */
 const NAV_ITEMS = [
-  { href: "/",         label: "Analyze New Query"  },
+  { href: "/app",      label: "Analyze New Query"  },
   { href: "/history",  label: "Execution History"  },
   { href: "/datasets", label: "Datasets"           },
   { href: "/reports",  label: "Reports"            },
@@ -23,7 +23,7 @@ const NAV_ITEMS = [
 ] as const;
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
-  "/":         <SatelliteIcon />,
+  "/app":      <SatelliteIcon />,
   "/history":  <History   className="w-[18px] h-[18px] flex-shrink-0" />,
   "/datasets": <Database  className="w-[18px] h-[18px] flex-shrink-0" />,
   "/reports":  <FileText  className="w-[18px] h-[18px] flex-shrink-0" />,
