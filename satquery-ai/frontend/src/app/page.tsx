@@ -40,6 +40,20 @@ export default function LandingPage() {
   const isLaunchingRef = useRef(false);
   isLaunchingRef.current = isLaunching;
 
+  const scrollProgressRef = useRef(0);
+  scrollProgressRef.current = scrollProgress;
+
+  const launchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up pending launch timer on unmount
+  useEffect(() => {
+    return () => {
+      if (launchTimerRef.current) {
+        clearTimeout(launchTimerRef.current);
+      }
+    };
+  }, []);
+
   // Check prefers-reduced-motion
   useEffect(() => {
     setMounted(true);
@@ -47,11 +61,13 @@ export default function LandingPage() {
     setIsReducedMotion(mq.matches);
     if (mq.matches) {
       setScrollProgress(1);
+      scrollProgressRef.current = 1;
     }
     const handler = (e: MediaQueryListEvent) => {
       setIsReducedMotion(e.matches);
       if (e.matches) {
         setScrollProgress(1);
+        scrollProgressRef.current = 1;
       }
     };
     mq.addEventListener("change", handler);
@@ -77,10 +93,12 @@ export default function LandingPage() {
         document.documentElement.scrollHeight - window.innerHeight;
       if (maxScroll <= 0) {
         setScrollProgress(0);
+        scrollProgressRef.current = 0;
         return;
       }
       const p = Math.min(Math.max(scrollY / maxScroll, 0), 1);
       setScrollProgress(p);
+      scrollProgressRef.current = p;
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -95,7 +113,10 @@ export default function LandingPage() {
       return;
     }
     setIsLaunching(true);
-    setTimeout(() => {
+    if (launchTimerRef.current) {
+      clearTimeout(launchTimerRef.current);
+    }
+    launchTimerRef.current = setTimeout(() => {
       router.push("/app");
     }, 600);
   }, [isReducedMotion, router]);
@@ -234,7 +255,7 @@ export default function LandingPage() {
       });
 
       // Zoom interpolation based on scroll progress and launch sequence
-      const currentP = isReducedMotion ? 0.85 : scrollProgress;
+      const currentP = isReducedMotion ? 0.85 : scrollProgressRef.current;
       const baseR = Math.min(w, h) * 0.34;
       const maxR = Math.min(w, h) * 1.7;
       let R = baseR + (maxR - baseR) * Math.pow(currentP, 1.4);
@@ -457,7 +478,7 @@ export default function LandingPage() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resizeCanvas);
     };
-  }, [scrollProgress, isReducedMotion]);
+  }, [isReducedMotion]);
 
   // Optical imagery transition opacity: emerges as camera approaches Earth
   const imageryOpacity = isReducedMotion
@@ -465,8 +486,8 @@ export default function LandingPage() {
     : Math.min(Math.max((scrollProgress - 0.4) / 0.35, 0), 0.85);
 
   // Text stage visibility calculations
-  const isOrbitState = scrollProgress < 0.35 && !isLaunching;
-  const isObservationState = scrollProgress >= 0.4 && scrollProgress < 0.78 && !isLaunching;
+  const isOrbitState = scrollProgress < 0.38 && !isLaunching;
+  const isObservationState = scrollProgress >= 0.38 && scrollProgress < 0.78 && !isLaunching;
   const isLaunchState = (scrollProgress >= 0.78 || isReducedMotion) && !isLaunching;
 
   return (
