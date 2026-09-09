@@ -7,15 +7,15 @@ import {
 } from "lucide-react";
 import type { AnalysisResponse } from "@/types";
 
-// Task → data-palette hue. Six visually distinct observation hues.
+// Task: data-palette hue. Six visually distinct observation hues.
 const mix = (v: string, pct: number) => `color-mix(in srgb, ${v} ${pct}%, transparent)`;
 const TASK_LABELS: Record<string, { label: string; color: string; bg: string; border: string }> = {
   SINGLE_VQA:         { label: "Visual Q&A",         color: "var(--accent)", bg: mix("var(--accent)", 13), border: mix("var(--accent)", 32) },
   CAPTIONING:         { label: "Scene Caption",      color: "var(--water)",  bg: mix("var(--water)", 13),  border: mix("var(--water)", 32) },
   GROUNDING:          { label: "Object Grounding",   color: "var(--veg)",    bg: mix("var(--veg)", 13),    border: mix("var(--veg)", 32) },
-  CHANGE_VQA:         { label: "Change Q&A",         color: "var(--sar)",    bg: mix("var(--sar)", 13),    border: mix("var(--sar)", 32) },
+  CHANGE_VQA:         { label: "Change Q&A",         color: "var(--change)", bg: mix("var(--change)", 13), border: mix("var(--change)", 32) },
   CHANGE_DESCRIPTION: { label: "Change Detection",   color: "var(--change)", bg: mix("var(--change)", 13), border: mix("var(--change)", 32) },
-  SAR_OPTICAL_FUSION: { label: "SAR-Optical Fusion", color: "var(--bare)",   bg: mix("var(--bare)", 13),   border: mix("var(--bare)", 32) },
+  SAR_OPTICAL_FUSION: { label: "SAR-Optical Fusion", color: "var(--sar)",    bg: mix("var(--sar)", 13),    border: mix("var(--sar)", 32) },
 };
 
 interface Props {
@@ -83,14 +83,14 @@ export default function ResultDisplay({ result }: Props) {
             icon={<Activity className="w-3.5 h-3.5" />}
             label="Detected changes"
             value={`${result.change_percentage!.toFixed(1)}%`}
-            valueColor={"var(--sar)"}
+            valueColor={"var(--change)"}
             detail={
               <div
                 className="text-[10px] px-1.5 py-0.5 rounded"
                 style={{
-                  background: mix("var(--sar)", 12),
-                  border: `1px solid ${mix("var(--sar)", 25)}`,
-                  color: "var(--sar)",
+                  background: mix("var(--change)", 12),
+                  border: `1px solid ${mix("var(--change)", 25)}`,
+                  color: "var(--change)",
                 }}
               >
                 {result.change_percentage! < 5 ? "Minimal" : result.change_percentage! < 20 ? "Moderate" : "Significant"}
@@ -148,12 +148,12 @@ export default function ResultDisplay({ result }: Props) {
           <div
             className="mt-2.5 flex items-center gap-2 p-2 rounded-lg"
             style={{
-              background: mix("var(--sar)", 8),
-              border: `1px solid ${mix("var(--sar)", 22)}`,
+              background: mix("var(--change)", 8),
+              border: `1px solid ${mix("var(--change)", 22)}`,
             }}
           >
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--sar)" }} />
-            <span className="text-[11px]" style={{ color: "var(--sar)" }}>
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--change)" }} />
+            <span className="text-[11px]" style={{ color: "var(--change)" }}>
               Changed area occupies <strong>{result.change_percentage!.toFixed(1)}%</strong> of the observed scene
             </span>
           </div>
@@ -202,7 +202,7 @@ export default function ResultDisplay({ result }: Props) {
                     {(box.score * 100).toFixed(0)}%
                   </span>
                   <span className="hidden sm:inline">
-                    [{box.x1.toFixed(1)},{box.y1.toFixed(1)}→{box.x2.toFixed(1)},{box.y2.toFixed(1)}]
+                    [{box.x1.toFixed(1)}, {box.y1.toFixed(1)} to {box.x2.toFixed(1)}, {box.y2.toFixed(1)}]
                   </span>
                 </div>
               </div>

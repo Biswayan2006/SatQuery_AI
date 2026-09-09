@@ -11,10 +11,10 @@ import {
 
 /* ──────────────────────────────────────────────────────────────────────────
    SatQuery theme engine.
-   · Preference is one of: "system" | "light" | "dark"  (persisted to localStorage)
-   · resolvedTheme is the concrete "light" | "dark" actually applied
-   · Follows OS preference by default; a manual toggle sets an explicit override
-   · The no-flash <script> in layout.tsx sets data-theme before first paint, so
+   - Preference is one of: "system" | "light" | "dark"  (persisted to localStorage)
+   - resolvedTheme is the concrete "light" | "dark" actually applied
+   - Follows OS preference by default; a manual toggle sets an explicit override
+   - The no-flash <script> in layout.tsx sets data-theme before first paint, so
      this provider only *syncs* React state to what's already on <html>.
    ────────────────────────────────────────────────────────────────────────── */
 
@@ -23,8 +23,8 @@ export type ResolvedTheme = "light" | "dark";
 
 const STORAGE_KEY = "sq-theme";
 const META_COLOR: Record<ResolvedTheme, string> = {
-  light: "#E9E2D4",
-  dark: "#0A0F14",
+  light: "#E0D1C0",
+  dark: "#1C1F20",
 };
 
 type ThemeCtx = {
@@ -116,7 +116,7 @@ export function useTheme(): ThemeCtx {
   return ctx;
 }
 
-/** True only after client mount — use to avoid rendering theme-specific UI on the server. */
+/** True only after client mount: use to avoid rendering theme-specific UI on the server. */
 export function useMounted(): boolean {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);

@@ -10,13 +10,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const mix = (v: string, pct: number) => `color-mix(in srgb, ${v} ${pct}%, transparent)`;
 
-// Model task → data-palette hue
+// Model task: data-palette hue
 const TASK_COLOR: Record<string, string> = {
   "Visual Question Answering": "var(--accent)",
   "Image Captioning":          "var(--water)",
   "Text-Guided Grounding":     "var(--veg)",
   "Change Detection":          "var(--change)",
-  "SAR-Optical Fusion":        "var(--bare)",
+  "SAR-Optical Fusion":        "var(--sar)",
 };
 
 export default function ModelStatus() {

@@ -36,12 +36,12 @@ export function saveToHistory(result: AnalysisResponse, query: string) {
 }
 
 const TASK_COLOR: Record<string, string> = {
-  SINGLE_VQA:         "text-violet-400 bg-violet-950/50 border-violet-700/30",
-  CAPTIONING:         "text-sky-400 bg-sky-950/50 border-sky-700/30",
-  GROUNDING:          "text-emerald-400 bg-emerald-950/50 border-emerald-700/30",
-  CHANGE_VQA:         "text-amber-400 bg-amber-950/50 border-amber-700/30",
-  CHANGE_DESCRIPTION: "text-orange-400 bg-orange-950/50 border-orange-700/30",
-  SAR_OPTICAL_FUSION: "text-rose-400 bg-rose-950/50 border-rose-700/30",
+  SINGLE_VQA:         "text-accent bg-accent-soft border-accent-border",
+  CAPTIONING:         "text-water bg-water-soft border-water/30",
+  GROUNDING:          "text-veg bg-veg-soft border-veg/30",
+  CHANGE_VQA:         "text-change bg-change-soft border-change/30",
+  CHANGE_DESCRIPTION: "text-change bg-change-soft border-change/30",
+  SAR_OPTICAL_FUSION: "text-sar bg-sar-soft border-sar/30",
 };
 
 interface Props {
@@ -72,19 +72,19 @@ export default function SessionHistory({ onSelect }: Props) {
   if (entries.length === 0 && !open) return null;
 
   return (
-    <div className="glass overflow-hidden">
+    <div className="sq-card overflow-hidden">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors no-tap"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-raised transition-colors no-tap"
       >
         <div className="flex items-center gap-2.5">
-          <History className="w-3.5 h-3.5 text-slate-500" />
-          <span className="text-xs font-semibold text-slate-400">Recent Sessions</span>
-          <span className="text-[10px] text-slate-600 bg-space-800/60 border border-white/[0.04] px-1.5 py-0.5 rounded-full">
+          <History className="w-3.5 h-3.5 text-ink-muted" />
+          <span className="text-xs font-semibold text-ink-soft">Recent Sessions</span>
+          <span className="text-[10px] text-ink-muted bg-raised border border-line px-1.5 py-0.5 rounded-full">
             {entries.length}
           </span>
         </div>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-slate-600" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-600" />}
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-ink-muted" /> : <ChevronDown className="w-3.5 h-3.5 text-ink-muted" />}
       </button>
 
       <AnimatePresence initial={false}>
@@ -95,35 +95,35 @@ export default function SessionHistory({ onSelect }: Props) {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="border-t border-white/[0.04] max-h-72 overflow-y-auto">
+            <div className="border-t border-line max-h-72 overflow-y-auto">
               {entries.length === 0 ? (
-                <p className="text-xs text-slate-600 text-center py-6">No history yet</p>
+                <p className="text-xs text-ink-muted text-center py-6">No history yet</p>
               ) : (
                 <>
                   {entries.map((e) => (
-                    <div key={e.id} className="group flex items-start gap-2 px-4 py-3 hover:bg-white/[0.02] border-b border-white/[0.03]">
+                    <div key={e.id} className="group flex items-start gap-2 px-4 py-3 hover:bg-raised border-b border-line">
                       <button
                         onClick={() => onSelect(e.query)}
                         className="flex-1 text-left min-w-0 no-tap"
                       >
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${TASK_COLOR[e.task] ?? "text-slate-400 bg-space-800 border-white/[0.04]"}`}>
-                            {e.task.replace("_", " ")}
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${TASK_COLOR[e.task] ?? "text-ink-muted bg-raised border-line"}`}>
+                            {e.task.replace(/_/g, " ")}
                           </span>
-                          <span className="text-[9px] text-slate-700 font-mono flex items-center gap-0.5">
+                          <span className="text-[9px] text-ink-muted font-mono flex items-center gap-0.5">
                             <Clock className="w-2.5 h-2.5" />
                             {formatTime(e.timestamp)}
                           </span>
-                          <span className="text-[9px] text-slate-600 font-mono ml-auto">
+                          <span className="text-[9px] text-ink-muted font-mono ml-auto">
                             {Math.round(e.confidence * 100)}%
                           </span>
                         </div>
-                        <p className="text-xs text-slate-300 truncate font-medium">{e.query}</p>
-                        <p className="text-[10px] text-slate-600 truncate mt-0.5 leading-relaxed">{e.answer}</p>
+                        <p className="text-xs text-ink-soft truncate font-medium">{e.query}</p>
+                        <p className="text-[10px] text-ink-muted truncate mt-0.5 leading-relaxed">{e.answer}</p>
                       </button>
                       <button
                         onClick={() => remove(e.id)}
-                        className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-700 hover:text-red-400 hover:bg-red-950/40 transition-colors opacity-0 group-hover:opacity-100 no-tap"
+                        className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-ink-muted hover:text-danger hover:bg-danger/10 transition-colors opacity-0 group-hover:opacity-100 no-tap"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -132,7 +132,7 @@ export default function SessionHistory({ onSelect }: Props) {
                   <div className="px-4 py-2">
                     <button
                       onClick={clear}
-                      className="text-[10px] text-slate-600 hover:text-red-400 transition-colors no-tap"
+                      className="text-[10px] text-ink-muted hover:text-danger transition-colors no-tap"
                     >
                       Clear all history
                     </button>
