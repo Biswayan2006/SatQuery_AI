@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Search, User } from "lucide-react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import NotificationsPopover from "@/components/layout/NotificationsPopover";
-import ProjectTabs from "@/components/layout/ProjectTabs";
 
 const PAGE_TITLES: Record<string, string> = {
   "/":         "SatQuery AI: Interactive Vision-Language Assistant",
@@ -30,7 +29,7 @@ export default function Header() {
         WebkitBackdropFilter: "blur(12px)",
       }}
     >
-      {/* Page title and project tabs */}
+      {/* Page title */}
       <div className="flex items-center gap-4 min-w-0 pr-4">
         <h1
           className="text-[17px] font-semibold truncate leading-none"
@@ -38,11 +37,6 @@ export default function Header() {
         >
           {title}
         </h1>
-
-        {/* Project tabs: quick switching */}
-        <div className="hidden xl:flex items-center pl-3 border-l border-line">
-          <ProjectTabs compact />
-        </div>
       </div>
 
       {/* Right controls */}

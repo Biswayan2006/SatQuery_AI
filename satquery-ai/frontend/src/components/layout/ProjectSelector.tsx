@@ -2,18 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Folder, ChevronDown, Check, Plus, Layers, X, Trash2 } from "lucide-react";
+import { Folder, ChevronDown, Check, Layers, Trash2 } from "lucide-react";
 import { useProject, Project } from "@/context/ProjectContext";
 
 export default function ProjectSelector() {
-  const { projects, activeProject, setActiveProjectId, createProject, deleteProject } = useProject();
+  const { projects, activeProject, setActiveProjectId, deleteProject } = useProject();
   const [open, setOpen] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newModality, setNewModality] = useState("Optical");
-  const [newSensor, setNewSensor] = useState("Sentinel-2");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,15 +25,6 @@ export default function ProjectSelector() {
     if (open) document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [open]);
-
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProjectName.trim()) return;
-    createProject(newProjectName.trim(), newModality, newSensor);
-    setNewProjectName("");
-    setShowModal(false);
-    setOpen(false);
-  };
 
   return (
     <div className="relative" ref={ref}>
@@ -131,22 +118,6 @@ export default function ProjectSelector() {
               );
             })}
           </div>
-
-          <div
-            className="p-1.5"
-            style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)" }}
-          >
-            <button
-              onClick={() => {
-                setOpen(false);
-                setShowModal(true);
-              }}
-              className="w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-accent hover:bg-raised transition-colors no-tap"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create New Project</span>
-            </button>
-          </div>
         </div>
       )}
 
@@ -203,126 +174,6 @@ export default function ProjectSelector() {
                   Delete Project
                 </button>
               </div>
-            </div>
-          </div>,
-          document.body
-        )}
-
-      {/* New Project Modal rendered via portal */}
-      {mounted &&
-        showModal &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
-            style={{ background: "var(--overlay)" }}
-            onClick={() => setShowModal(false)}
-          >
-            <div
-              className="w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4"
-              style={{
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Folder className="w-5 h-5 text-accent" />
-                  <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-                    Create New Project
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="p-1 rounded-lg hover:bg-raised text-ink-muted transition-colors no-tap"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreate} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                    Project Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Coastal Mangrove Survey"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-xs outline-none transition-colors"
-                    style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-primary)",
-                    }}
-                    autoFocus
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                      Primary Modality
-                    </label>
-                    <select
-                      value={newModality}
-                      onChange={(e) => setNewModality(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg text-xs outline-none"
-                      style={{
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      <option value="Optical">Optical (RGB)</option>
-                      <option value="SAR">SAR (Radar)</option>
-                      <option value="Multispectral">Multispectral</option>
-                      <option value="SAR + Optical">SAR + Optical Fusion</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                      Sensor Constellation
-                    </label>
-                    <select
-                      value={newSensor}
-                      onChange={(e) => setNewSensor(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg text-xs outline-none"
-                      style={{
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      <option value="Sentinel-2">Sentinel-2 (MSI)</option>
-                      <option value="Sentinel-1">Sentinel-1 (C-band SAR)</option>
-                      <option value="Landsat-8/9">Landsat-8/9 (OLI/TIRS)</option>
-                      <option value="Cartosat-3">Cartosat-3 (High-res)</option>
-                      <option value="RISAT-1A">RISAT-1A (C-band SAR)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-ink-muted hover:text-ink hover:bg-raised transition-colors no-tap"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-accent text-accent-contrast hover:bg-accent-hover transition-colors no-tap"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Create Project
-                  </button>
-                </div>
-              </form>
             </div>
           </div>,
           document.body

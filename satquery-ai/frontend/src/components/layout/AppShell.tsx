@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
 import MobileHeader from "./MobileHeader";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // Root route "/" is the public PS 26167 showcase site
+  if (pathname === "/") {
+    return <div className="min-h-screen">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
       {/* Persistent left sidebar: desktop only */}

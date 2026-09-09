@@ -22,10 +22,10 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SatQuery AI: Remote Sensing Intelligence",
+  title: "SatQuery AI | PS 26167: ISRO / Space Applications Centre",
   description:
-    "Agentic vision-language assistant for multimodal satellite image analysis. VQA, captioning, change detection, and SAR-optical fusion.",
-  keywords: ["satellite imagery", "remote sensing", "AI analysis", "change detection", "SAR"],
+    "Agentic vision-language remote sensing assistant for optical and SAR satellite data. Problem Statement 26167 for Smart India Hackathon.",
+  keywords: ["satellite imagery", "remote sensing", "AI analysis", "change detection", "SAR", "ISRO"],
   authors: [{ name: "SatQuery AI" }],
   manifest: "/manifest.json",
 };
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1C1F20",
+  themeColor: "#F0F1EC",
 };
 
 /* Runs before first paint: applies the persisted (or system) theme so there is
