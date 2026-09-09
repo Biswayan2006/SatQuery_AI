@@ -38,6 +38,37 @@ class TaskType(str, Enum):
     SAR_OPTICAL_FUSION = "SAR_OPTICAL_FUSION"
 
 
+# ── Entity lexicon for "describe X" disambiguation ────────────────────────────
+# When a query contains "describe" (or synonym) PLUS one of these entity terms,
+# the query is object-specific → route to VQA, not generic captioning.
+#
+# Maintained as a flat set for O(1) membership testing.  Add new RS entity
+# terms here rather than scattering ad-hoc checks.
+_RS_ENTITY_LEXICON: set = {
+    # Infrastructure
+    "road", "highway", "street", "bridge", "tunnel", "overpass", "intersection",
+    "railway", "railroad", "track", "canal", "dam", "pipeline",
+    # Buildings / structures
+    "building", "house", "structure", "tower", "facility", "complex",
+    "parking lot", "parking", "airport", "runway", "port", "harbor", "harbour",
+    # Water
+    "river", "water", "lake", "pond", "ocean", "sea", "stream", "creek",
+    "reservoir", "wetland", "flood",
+    # Vegetation
+    "forest", "vegetation", "tree", "field", "crop", "agriculture", "farmland",
+    "grassland", "shrub", "mangrove",
+    # Land use
+    "urban", "settlement", "industrial", "residential", "commercial",
+    "park", "playground", "stadium",
+    # Transport / vehicles
+    "vehicle", "car", "truck", "ship", "vessel", "aircraft", "plane",
+    "boat", "train",
+    # Terrain
+    "mountain", "hill", "valley", "desert", "sand", "coast", "shoreline",
+    "cliff", "terrain", "slope",
+}
+
+
 # ── Keyword rule sets ─────────────────────────────────────────────────────────
 
 _RULES: Dict[TaskType, Dict[str, float]] = {
@@ -49,8 +80,9 @@ _RULES: Dict[TaskType, Dict[str, float]] = {
     },
     TaskType.GROUNDING: {
         "where is": 0.85, "locate": 0.9, "find": 0.75, "detect": 0.8,
-        "identify location": 0.9, "show me": 0.7, "point out": 0.8,
-        "bounding box": 0.95, "highlight": 0.7, "mark": 0.65, "position of": 0.85,
+        "identify": 0.85, "identify location": 0.9, "show me": 0.7,
+        "point out": 0.8, "bounding box": 0.95, "highlight": 0.7,
+        "mark": 0.65, "position of": 0.85,
         "how many": 0.98, "count": 0.98, "number of": 0.98, "count of": 0.98,
     },
     TaskType.CHANGE_VQA: {
@@ -237,14 +269,62 @@ class TaskClassifier:
             elif structural_scores[TaskType.SAR_OPTICAL_FUSION.value] < 0.3:
                 structural_scores[TaskType.CAPTIONING.value] += 0.2
 
-        # Default fallback if no signal at all
+        # Default fallback if no signal at all.
+        # Single images default to VQA (safer for RS queries); pairs default
+        # to change description.  Captioning only wins when explicitly invoked
+        # by a keyword.
         if all(v == 0.0 for v in keyword_scores.values()):
             if num_images == 2:
                 keyword_scores[TaskType.CHANGE_DESCRIPTION.value] = 0.4
             else:
-                keyword_scores[TaskType.CAPTIONING.value] = 0.4
+                keyword_scores[TaskType.SINGLE_VQA.value] = 0.3
+
+        # ── Disambiguate "describe X" vs generic description ─────────────────
+        # If the query uses a description verb ("describe", "summarize", …)
+        # together with a specific RS entity, override routing to VQA.
+        self._disambiguate_entity_description(q, keyword_scores)
 
         return keyword_scores, structural_scores
+
+    @staticmethod
+    def _disambiguate_entity_description(
+        q: str, keyword_scores: Dict[str, float]
+    ) -> None:
+        """
+        Detect ``"describe <entity>"`` patterns and reroute from CAPTIONING
+        to SINGLE_VQA when a specific RS entity is mentioned.
+
+        The heuristic:
+          1. Query contains a description verb (describe, summarize, overview, …).
+          2. Query contains a term from ``_RS_ENTITY_LEXICON``.
+          3. The entity term is NOT immediately preceded by "the image" / "the scene"
+             (which would make it a generic description).
+
+        When both conditions hold, VQA is boosted to 0.9 (above captioning's
+        0.8) so the downstream max() picks SINGLE_VQA.
+        """
+        desc_verbs = ("describe", "summarize", "overview", "tell me about",
+                       "what does", "what can you see", "caption")
+        has_desc_verb = any(v in q for v in desc_verbs)
+        if not has_desc_verb:
+            return
+
+        # Check whether a specific entity is mentioned
+        words = q.split()
+        has_entity = any(w in _RS_ENTITY_LEXICON for w in words)
+        # Also check multi-word entities (e.g., "parking lot", "water body")
+        if not has_entity:
+            has_entity = any(e in q for e in _RS_ENTITY_LEXICON if " " in e)
+
+        if has_entity:
+            # Override: this is an object-specific question, not a generic caption
+            keyword_scores[TaskType.SINGLE_VQA.value] = max(
+                keyword_scores[TaskType.SINGLE_VQA.value], 0.9
+            )
+            # Suppress captioning so it doesn't win on tie
+            keyword_scores[TaskType.CAPTIONING.value] = min(
+                keyword_scores[TaskType.CAPTIONING.value], 0.3
+            )
 
     def _keyword_classify(
         self,
@@ -268,8 +348,9 @@ class TaskClassifier:
             TaskType.GROUNDING,
             TaskType.CHANGE_VQA,
             TaskType.CHANGE_DESCRIPTION,
-            TaskType.CAPTIONING,
+            TaskType.LAND_COVER_CLASSIFICATION,
             TaskType.SINGLE_VQA,
+            TaskType.CAPTIONING,
         ]
         best_task = max(
             scores,

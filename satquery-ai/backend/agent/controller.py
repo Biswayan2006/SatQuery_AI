@@ -259,7 +259,7 @@ class AgenticController:
                 task_confidence=task_confidence,
                 model_names=["RemoteSensingVQA"],
                 steps=["validate_input", "preprocess_image", "run_vqa", "format_answer"],
-                parameters={"min_new_tokens": 15, "max_new_tokens": 100, "num_beams": 4},
+                parameters={"min_new_tokens": 1, "max_new_tokens": 50, "num_beams": 4},
             ),
             TaskType.LAND_COVER_CLASSIFICATION: ExecutionPlan(
                 task_type=task_type,
@@ -686,6 +686,21 @@ class AgenticController:
             session_id=None,
             pil=pil,
             query=query
+        )
+
+        # Debug: log the full inference trace
+        from models.vqa_model import RemoteSensingVQA
+        prompt = RemoteSensingVQA._build_prompt(query)
+        logger.info(
+            "VQA_DEBUG task=%s model=%s prompt='%s' answer='%s' confidence=%.4f "
+            "confidence_calibrated=%s image_size=%s",
+            plan.task_type.value,
+            plan.model_names[0] if plan.model_names else "unknown",
+            prompt,
+            out.get("answer", ""),
+            out.get("confidence", 0.0),
+            out.get("confidence_is_calibrated", False),
+            f"{pil.size[0]}x{pil.size[1]}" if pil else "none",
         )
         
         return RawResults(

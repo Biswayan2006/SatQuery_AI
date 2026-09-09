@@ -204,6 +204,30 @@ class RemoteSensingVQA:
         self.model.eval()
         logger.info("BLIP VQA loaded")
 
+    # ── Prompt construction ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _build_prompt(question: str) -> str:
+        """
+        Construct the VQA prompt sent to BLIP.
+
+        For overhead satellite imagery, prepending a short domain hint helps
+        BLIP orient its visual attention toward aerial/overhead structures
+        rather than natural-scene defaults.  The prefix is intentionally
+        compact — a full paragraph would dilute the actual question.
+
+        The user's question is ALWAYS preserved verbatim after the prefix.
+        """
+        q = question.strip()
+        # Don't double-prefix if the caller already included context
+        _satellite_markers = (
+            "satellite", "overhead", "aerial", "remote sensing",
+            "satellite image", "overhead image",
+        )
+        if any(m in q.lower() for m in _satellite_markers):
+            return q
+        return f"This is an overhead satellite image. {q}"
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def answer(self, image: Image.Image, question: str) -> dict:
@@ -279,8 +303,8 @@ class RemoteSensingVQA:
         img_attn = torch.ones(vt.size()[:-1], dtype=torch.long, device=device)
         decoding = {
             "num_beams": 1,
-            "min_new_tokens": 15,
-            "max_new_tokens": 100,
+            "min_new_tokens": 1,
+            "max_new_tokens": 50,
             "repetition_penalty": 1.2,
             "do_sample": False,
         }
@@ -309,8 +333,8 @@ class RemoteSensingVQA:
                 pad_token_id=model.config.text_config.pad_token_id,
                 encoder_hidden_states=question_embeds,
                 encoder_attention_mask=q_attn,
-                min_new_tokens=15,
-                max_new_tokens=100,
+                min_new_tokens=1,
+                max_new_tokens=50,
                 repetition_penalty=1.2,
                 do_sample=False,
                 output_scores=True,
@@ -328,14 +352,14 @@ class RemoteSensingVQA:
     # ── Inference ─────────────────────────────────────────────────────────────
 
     def _infer_blip2(self, image: Image.Image, question: str) -> dict:
-        prompted_q = f"Question: {question} Answer:"
+        prompted_q = f"Question: {self._build_prompt(question)} Answer:"
         inputs = self.processor(images=image, text=prompted_q, return_tensors="pt")
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         decoding = {
             "num_beams": 4,
             "early_stopping": True,
-            "min_new_tokens": 15,
-            "max_new_tokens": 100,
+            "min_new_tokens": 1,
+            "max_new_tokens": 50,
             "repetition_penalty": 1.2,
             "do_sample": False,
         }
@@ -343,8 +367,8 @@ class RemoteSensingVQA:
         with torch.no_grad():
             gen = self.model.generate(
                 **inputs,
-                min_new_tokens=15,
-                max_new_tokens=100,
+                min_new_tokens=1,
+                max_new_tokens=50,
                 num_beams=4,
                 early_stopping=True,
                 repetition_penalty=1.2,
@@ -359,11 +383,12 @@ class RemoteSensingVQA:
         return self._build_result(answer, gen, seq, decoding)
 
     def _infer_blip(self, image: Image.Image, question: str) -> dict:
-        inputs = self.processor(images=image, text=question, return_tensors="pt").to(self.device)
+        prompted_q = self._build_prompt(question)
+        inputs = self.processor(images=image, text=prompted_q, return_tensors="pt").to(self.device)
         decoding = {
-            "num_beams": 1,
-            "min_new_tokens": 15,
-            "max_new_tokens": 100,
+            "num_beams": 4,
+            "min_new_tokens": 1,
+            "max_new_tokens": 50,
             "repetition_penalty": 1.2,
             "do_sample": False,
         }
@@ -371,8 +396,9 @@ class RemoteSensingVQA:
         with torch.no_grad():
             gen = self.model.generate(
                 **inputs,
-                min_new_tokens=15,
-                max_new_tokens=100,
+                min_new_tokens=1,
+                max_new_tokens=50,
+                num_beams=4,
                 repetition_penalty=1.2,
                 do_sample=False,
                 output_scores=True,
