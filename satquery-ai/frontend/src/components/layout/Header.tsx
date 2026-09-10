@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, User } from "lucide-react";
+import { useSession } from "next-auth/react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import NotificationsPopover from "@/components/layout/NotificationsPopover";
 
@@ -16,6 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function Header() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const title = PAGE_TITLES[pathname] ?? "SatQuery AI";
 
   return (
@@ -59,6 +61,25 @@ export default function Header() {
 
         {/* Notifications Popover */}
         <NotificationsPopover />
+
+        {/* Auth status indicator */}
+        {session ? (
+          <span
+            className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded"
+            style={{ color: "var(--veg)", background: "var(--veg-soft)", border: "1px solid color-mix(in srgb, var(--veg) 25%, transparent)" }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--veg)" }} />
+            Signed in
+          </span>
+        ) : (
+          <Link
+            href="/login"
+            className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded transition-colors duration-150"
+            style={{ color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+          >
+            Guest mode
+          </Link>
+        )}
 
         {/* User avatar linking to settings */}
         <Link

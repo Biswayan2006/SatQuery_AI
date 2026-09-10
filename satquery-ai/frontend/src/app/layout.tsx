@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import AppShell from "@/components/layout/AppShell";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ProjectProvider } from "@/context/ProjectContext";
+import AuthProvider from "@/components/AuthProvider";
 import "./globals.css";
 
 /* Type system: IBM Plex Sans for UI, IBM Plex Mono for data values only. */
@@ -49,26 +50,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="antialiased">
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <ThemeProvider>
-          <ProjectProvider>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                style: {
-                  background: "var(--bg-elevated)",
-                  color: "var(--text-primary)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "12px",
-                  fontSize: "13px",
-                  boxShadow: "var(--shadow-lg)",
-                },
-                success: { iconTheme: { primary: "var(--veg)", secondary: "var(--bg-elevated)" } },
-                error: { iconTheme: { primary: "var(--danger)", secondary: "var(--bg-elevated)" } },
-              }}
-            />
-            <AppShell>{children}</AppShell>
-          </ProjectProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <ProjectProvider>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    background: "var(--bg-elevated)",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "12px",
+                    fontSize: "13px",
+                    boxShadow: "var(--shadow-lg)",
+                  },
+                  success: { iconTheme: { primary: "var(--veg)", secondary: "var(--bg-elevated)" } },
+                  error: { iconTheme: { primary: "var(--danger)", secondary: "var(--bg-elevated)" } },
+                }}
+              />
+              <AppShell>{children}</AppShell>
+            </ProjectProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

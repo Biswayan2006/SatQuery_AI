@@ -9,8 +9,8 @@ import MobileHeader from "./MobileHeader";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Root route "/" is the public PS 26167 showcase site
-  if (pathname === "/") {
+  // Root route "/" and "/login" are public pages
+  if (pathname === "/" || pathname === "/login") {
     return <div className="min-h-screen">{children}</div>;
   }
 

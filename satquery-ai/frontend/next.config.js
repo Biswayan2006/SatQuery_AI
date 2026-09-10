@@ -14,7 +14,7 @@ const nextConfig = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     return [
       {
-        source: "/api/:path*",
+        source: "/api/:path((?!auth).*)",
         destination: `${apiUrl}/api/:path*`,
       },
     ];

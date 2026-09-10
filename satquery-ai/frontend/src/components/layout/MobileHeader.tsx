@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, User } from "lucide-react";
+import { useSession } from "next-auth/react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import NotificationsPopover from "@/components/layout/NotificationsPopover";
 import ProjectSelector from "@/components/layout/ProjectSelector";
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
 export default function MobileHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   return (
     <>
@@ -133,18 +135,33 @@ export default function MobileHeader() {
 
           {/* User */}
           <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-            <div className="flex items-center gap-3 px-2 py-2.5">
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
-              >
-                <User className="w-4 h-4" style={{ color: "var(--accent)" }} />
+            {session ? (
+              <div className="flex items-center gap-3 px-2 py-2.5">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
+                >
+                  <User className="w-4 h-4" style={{ color: "var(--accent)" }} />
+                </div>
+                <div className="leading-tight">
+                  <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>Signed in</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>{session.user?.name ?? session.user?.email ?? "User"}</p>
+                </div>
               </div>
-              <div className="leading-tight">
-                <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>User</p>
-                <p className="text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>ISRO Scientist</p>
-              </div>
-            </div>
+            ) : (
+              <Link href="/login" onClick={() => setOpen(false)} className="flex items-center gap-3 px-2 py-2.5 no-tap rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}>
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                >
+                  <User className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                </div>
+                <div className="leading-tight">
+                  <p className="text-[11px]" style={{ color: "var(--text-faint)" }}>Guest mode</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Sign in with Google</p>
+                </div>
+              </Link>
+            )}
           </div>
         </div>
       )}

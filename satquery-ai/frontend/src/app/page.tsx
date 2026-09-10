@@ -1,24 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { ArrowRight, ChevronDown, Check } from "lucide-react";
+import {
+  ArrowRight,
+  Brain,
+  Globe,
+  Image,
+  MapPin,
+  Search,
+  Shield,
+  Satellite,
+  Sparkles,
+  CheckCircle2,
+  Layers,
+  BarChart3,
+  AlertTriangle,
+  ChevronRight,
+} from "lucide-react";
 
-/* ── Inline SVG Satellite for consistent styling ─────────────────────────── */
-function SatelliteIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
+function SatIcon({ size = 18, color = "currentColor" }: { size?: number; color?: string }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2a2.236 2.236 0 0 0-3-3" />
       <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
       <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
@@ -27,666 +29,386 @@ function SatelliteIcon({ size = 18, color = "currentColor" }: { size?: number; c
   );
 }
 
+const CAPABILITIES = [
+  {
+    icon: Search,
+    title: "Natural-Language Querying",
+    desc: "Ask questions about satellite imagery in plain English. No GIS expertise required.",
+    color: "var(--accent)",
+  },
+  {
+    icon: Image,
+    title: "Image Captioning",
+    desc: "Automatic scene description for optical and multispectral remote-sensing imagery.",
+    color: "var(--veg)",
+  },
+  {
+    icon: Brain,
+    title: "Visual Question Answering",
+    desc: "Targeted answers about land cover, infrastructure, vegetation, water bodies, and more.",
+    color: "var(--water)",
+  },
+  {
+    icon: Layers,
+    title: "Land-Cover Classification",
+    desc: "Zero-shot classification into semantic land-cover categories using RS-CLIP embeddings.",
+    color: "var(--bare)",
+  },
+  {
+    icon: BarChart3,
+    title: "Spectral Statistics",
+    desc: "Deterministic band-level statistics computed directly from raster data — no ML model needed.",
+    color: "var(--sar)",
+  },
+  {
+    icon: MapPin,
+    title: "Deterministic Geolocation",
+    desc: "When geospatial metadata is present, extract precise coordinates and place names without any ML model.",
+    color: "var(--water)",
+  },
+  {
+    icon: Shield,
+    title: "Verification-Aware Responses",
+    desc: "When confidence is low or metadata is unavailable, SatQuery AI says so — it does not fabricate answers.",
+    color: "var(--change)",
+  },
+  {
+    icon: Globe,
+    title: "Agentic Task Routing",
+    desc: "An intelligent classifier routes each query to the optimal specialist model or deterministic tool.",
+    color: "var(--accent)",
+  },
+];
+
+const PIPELINE_STEPS = [
+  { label: "Your Query", detail: "\"What land cover types are present?\"" },
+  { label: "Task Classification", detail: "Intent detection + confidence scoring" },
+  { label: "Agentic Routing", detail: "Specialist model or deterministic tool selection" },
+  { label: "Execution", detail: "Model inference or geospatial computation" },
+  { label: "Evidence Integration", detail: "Confidence assessment + tool evidence" },
+  { label: "Natural-Language Result", detail: "Answer with evidence and uncertainty" },
+];
+
+const MODALITIES = [
+  { name: "Optical", examples: "Sentinel-2, Landsat, high-res RGB", status: "supported" },
+  { name: "Multispectral", examples: "Band-composite analysis, NDVI-adjacent", status: "supported" },
+  { name: "SAR", examples: "Synthetic Aperture Radar workflows", status: "architectural" },
+];
+
 export default function LandingPage() {
   const router = useRouter();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [isReducedMotion, setIsReducedMotion] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [isLaunching, setIsLaunching] = useState(false);
+  const handleLaunch = () => {
+    router.push("/app");
+  };
 
-  const isLaunchingRef = useRef(false);
-  isLaunchingRef.current = isLaunching;
-
-  const scrollProgressRef = useRef(0);
-  scrollProgressRef.current = scrollProgress;
-
-  const launchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Clean up pending launch timer on unmount
-  useEffect(() => {
-    return () => {
-      if (launchTimerRef.current) {
-        clearTimeout(launchTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Check prefers-reduced-motion
-  useEffect(() => {
-    setMounted(true);
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setIsReducedMotion(mq.matches);
-    if (mq.matches) {
-      setScrollProgress(1);
-      scrollProgressRef.current = 1;
-    }
-    const handler = (e: MediaQueryListEvent) => {
-      setIsReducedMotion(e.matches);
-      if (e.matches) {
-        setScrollProgress(1);
-        scrollProgressRef.current = 1;
-      }
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  // Pre-fetch the /app dashboard route for zero-latency transition
-  useEffect(() => {
-    try {
-      router.prefetch("/app");
-    } catch {
-      // ignore
-    }
-  }, [router]);
-
-  // Track window scroll progress between 0 and 1
-  useEffect(() => {
-    if (isReducedMotion || isLaunching) return;
-
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const maxScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
-      if (maxScroll <= 0) {
-        setScrollProgress(0);
-        scrollProgressRef.current = 0;
-        return;
-      }
-      const p = Math.min(Math.max(scrollY / maxScroll, 0), 1);
-      setScrollProgress(p);
-      scrollProgressRef.current = p;
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [isReducedMotion, isLaunching]);
-
-  // Launch transition into /app dashboard
-  const handleLaunch = useCallback(() => {
-    if (isReducedMotion) {
-      router.push("/app");
-      return;
-    }
-    setIsLaunching(true);
-    if (launchTimerRef.current) {
-      clearTimeout(launchTimerRef.current);
-    }
-    launchTimerRef.current = setTimeout(() => {
-      router.push("/app");
-    }, 600);
-  }, [isReducedMotion, router]);
-
-  // Smooth scroll helper to advance to launch stage
-  const scrollToLaunch = useCallback(() => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: "smooth",
-    });
-  }, []);
-
-  // Canvas Earth & Space Animation
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    let rotation = 0;
-    let launchZoom = 0;
-
-    // Fixed stars list
-    const starsCount = 200;
-    const stars: { x: number; y: number; r: number; a: number; speed: number }[] = [];
-
-    const initStars = (w: number, h: number) => {
-      stars.length = 0;
-      for (let i = 0; i < starsCount; i++) {
-        stars.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          r: Math.random() * 1.2 + 0.3,
-          a: Math.random() * 0.7 + 0.2,
-          speed: Math.random() * 0.02 + 0.005,
-        });
-      }
-    };
-
-    // Resize handling
-    const resizeCanvas = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.scale(dpr, dpr);
-      initStars(w, h);
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
-    // Continental landmass coordinates (approximate polygonal clusters)
-    const landmasses = [
-      // Eurasia / Africa
-      [
-        { lat: 60, lng: 30 },
-        { lat: 55, lng: 70 },
-        { lat: 40, lng: 110 },
-        { lat: 20, lng: 80 },
-        { lat: 10, lng: 50 },
-        { lat: 0, lng: 20 },
-        { lat: -30, lng: 25 },
-        { lat: -25, lng: 35 },
-        { lat: 5, lng: 40 },
-        { lat: 35, lng: 30 },
-      ],
-      // Americas
-      [
-        { lat: 65, lng: -100 },
-        { lat: 50, lng: -80 },
-        { lat: 30, lng: -85 },
-        { lat: 10, lng: -75 },
-        { lat: -10, lng: -55 },
-        { lat: -45, lng: -65 },
-        { lat: -20, lng: -40 },
-        { lat: 5, lng: -50 },
-        { lat: 25, lng: -100 },
-      ],
-      // Australia / Pacific
-      [
-        { lat: -15, lng: 130 },
-        { lat: -25, lng: 150 },
-        { lat: -35, lng: 140 },
-        { lat: -30, lng: 115 },
-      ],
-    ];
-
-    // 3D Sphere projection
-    function project3D(
-      lat: number,
-      lng: number,
-      rotY: number,
-      R: number,
-      cx: number,
-      cy: number
-    ) {
-      const phi = ((90 - lat) * Math.PI) / 180;
-      const theta = ((lng + rotY) * Math.PI) / 180;
-      const x3 = R * Math.sin(phi) * Math.cos(theta);
-      const y3 = R * Math.cos(phi);
-      const z3 = R * Math.sin(phi) * Math.sin(theta);
-      return { x: cx + x3, y: cy - y3, z: z3, visible: z3 > -R * 0.1 };
-    }
-
-    let lastTime = performance.now();
-
-    const render = (time: number) => {
-      const dt = (time - lastTime) / 1000;
-      lastTime = time;
-
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-
-      // Accelerate camera if launch transition is triggered
-      if (isLaunchingRef.current) {
-        launchZoom += dt * 3.2;
-      }
-
-      // Clear space background
-      ctx.fillStyle = "#080B0F";
-      ctx.fillRect(0, 0, w, h);
-
-      // Starfield rendering with subtle twinkle
-      stars.forEach((s) => {
-        const twinkle = Math.sin(time * s.speed + s.x) * 0.25;
-        const alpha = Math.min(Math.max(s.a + twinkle, 0.1), 0.9);
-        ctx.fillStyle = `rgba(180, 210, 230, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // Zoom interpolation based on scroll progress and launch sequence
-      const currentP = isReducedMotion ? 0.85 : scrollProgressRef.current;
-      const baseR = Math.min(w, h) * 0.34;
-      const maxR = Math.min(w, h) * 1.7;
-      let R = baseR + (maxR - baseR) * Math.pow(currentP, 1.4);
-
-      if (launchZoom > 0) {
-        R *= 1 + launchZoom * 2.2;
-      }
-
-      // Center shifts slightly for cinematic asymmetry
-      const cx = w / 2 - (w * 0.12) * currentP;
-      const cy = h / 2 + (h * 0.05) * currentP;
-
-      // Earth rotation
-      rotation += dt * (isLaunchingRef.current ? 35 : 8);
-      const rotY = rotation;
-
-      // 1. Atmosphere halo (soft blue glow)
-      const atmoGrad = ctx.createRadialGradient(cx, cy, R * 0.95, cx, cy, R * 1.25);
-      atmoGrad.addColorStop(0, "rgba(61, 115, 150, 0.28)");
-      atmoGrad.addColorStop(0.5, "rgba(40, 80, 107, 0.12)");
-      atmoGrad.addColorStop(1, "rgba(8, 11, 15, 0)");
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, R * 1.25, 0, Math.PI * 2);
-      ctx.fillStyle = atmoGrad;
-      ctx.fill();
-
-      // 2. Earth base sphere with spherical shading
-      const globeGrad = ctx.createRadialGradient(
-        cx - R * 0.35,
-        cy - R * 0.35,
-        R * 0.05,
-        cx,
-        cy,
-        R
-      );
-      globeGrad.addColorStop(0, "#22394A");
-      globeGrad.addColorStop(0.65, "#121E27");
-      globeGrad.addColorStop(1, "#090F14");
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.fillStyle = globeGrad;
-      ctx.fill();
-
-      // Clip subsequent continent & grid rendering inside the Earth sphere
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.clip();
-
-      // 3. Latitude & Longitude grid lines
-      ctx.strokeStyle = "rgba(110, 165, 195, 0.14)";
-      ctx.lineWidth = 1;
-
-      // Latitudes
-      for (let lat = -60; lat <= 60; lat += 30) {
-        ctx.beginPath();
-        let started = false;
-        for (let lng = 0; lng <= 360; lng += 10) {
-          const pt = project3D(lat, lng, rotY, R, cx, cy);
-          if (pt.visible) {
-            if (!started) {
-              ctx.moveTo(pt.x, pt.y);
-              started = true;
-            } else {
-              ctx.lineTo(pt.x, pt.y);
-            }
-          } else {
-            started = false;
-          }
-        }
-        ctx.stroke();
-      }
-
-      // Longitudes
-      for (let lng = 0; lng < 360; lng += 30) {
-        ctx.beginPath();
-        let started = false;
-        for (let lat = -80; lat <= 80; lat += 10) {
-          const pt = project3D(lat, lng, rotY, R, cx, cy);
-          if (pt.visible) {
-            if (!started) {
-              ctx.moveTo(pt.x, pt.y);
-              started = true;
-            } else {
-              ctx.lineTo(pt.x, pt.y);
-            }
-          } else {
-            started = false;
-          }
-        }
-        ctx.stroke();
-      }
-
-      // 4. Continents / Landmasses
-      ctx.fillStyle = "rgba(65, 95, 80, 0.45)";
-      ctx.strokeStyle = "rgba(120, 170, 140, 0.35)";
-      ctx.lineWidth = 1.2;
-
-      landmasses.forEach((poly) => {
-        ctx.beginPath();
-        let anyVisible = false;
-        poly.forEach((coord, idx) => {
-          const pt = project3D(coord.lat, coord.lng, rotY, R, cx, cy);
-          if (pt.visible) {
-            anyVisible = true;
-            if (idx === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
-          }
-        });
-        if (anyVisible) {
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
-        }
-      });
-
-      // 5. Day/Night Shadow Terminator overlay
-      const shadowGrad = ctx.createLinearGradient(
-        cx - R,
-        cy - R,
-        cx + R * 0.8,
-        cy + R * 0.8
-      );
-      shadowGrad.addColorStop(0, "rgba(255, 255, 255, 0.06)");
-      shadowGrad.addColorStop(0.4, "rgba(0, 0, 0, 0)");
-      shadowGrad.addColorStop(1, "rgba(4, 6, 8, 0.75)");
-
-      ctx.fillStyle = shadowGrad;
-      ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
-
-      ctx.restore(); // end clip
-
-      // Earth limb edge glow
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(120, 185, 220, 0.35)";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // 6. Satellite Orbit & Moving Satellite
-      const orbitA = R * 1.38;
-      const orbitB = R * 0.52;
-      const orbitAngle = -0.35;
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(orbitAngle);
-
-      // Faint orbital ellipse track
-      ctx.beginPath();
-      ctx.ellipse(0, 0, orbitA, orbitB, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(81, 141, 178, ${Math.max(0.28 - currentP * 0.2, 0.08)})`;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 6]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Satellite position along orbit
-      const satSpeed = 0.45;
-      const satAngle = (time / 1000) * satSpeed;
-      const satX = orbitA * Math.cos(satAngle);
-      const satY = orbitB * Math.sin(satAngle);
-
-      // Nadir sensor beam projected from satellite to Earth surface
-      if (currentP < 0.8 && !isLaunchingRef.current) {
-        ctx.beginPath();
-        ctx.moveTo(satX, satY);
-        const footX = satX * 0.72;
-        const footY = satY * 0.72;
-        ctx.lineTo(footX - 12, footY);
-        ctx.lineTo(footX + 12, footY);
-        ctx.closePath();
-        ctx.fillStyle = "rgba(155, 213, 232, 0.08)";
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.ellipse(footX, footY, 14, 5, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(155, 213, 232, 0.32)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-
-      // Draw Satellite icon & solar panels
-      ctx.translate(satX, satY);
-
-      // Satellite body
-      ctx.fillStyle = "#E8EDF2";
-      ctx.fillRect(-3, -3, 6, 6);
-
-      // Solar panel wings
-      ctx.fillStyle = "#518DB2";
-      ctx.fillRect(-10, -2, 5, 4);
-      ctx.fillRect(5, -2, 5, 4);
-
-      // Antenna beacon
-      ctx.strokeStyle = "#9BD5E8";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, -3);
-      ctx.lineTo(0, -6);
-      ctx.stroke();
-
-      // Satellite pulse
-      const pulseR = 8 + Math.sin(time * 0.005) * 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, pulseR, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(155, 213, 232, 0.28)";
-      ctx.stroke();
-
-      ctx.restore();
-
-      animId = requestAnimationFrame(render);
-    };
-
-    animId = requestAnimationFrame(render);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resizeCanvas);
-    };
-  }, [isReducedMotion]);
-
-  // Optical imagery transition opacity: emerges as camera approaches Earth
-  const imageryOpacity = isReducedMotion
-    ? 0.75
-    : Math.min(Math.max((scrollProgress - 0.4) / 0.35, 0), 0.85);
-
-  // Text stage visibility calculations
-  const isOrbitState = scrollProgress < 0.38 && !isLaunching;
-  const isObservationState = scrollProgress >= 0.38 && scrollProgress < 0.78 && !isLaunching;
-  const isLaunchState = (scrollProgress >= 0.78 || isReducedMotion) && !isLaunching;
+  const handleSignIn = () => {
+    router.push("/login");
+  };
 
   return (
-    <div
-      ref={containerRef}
-      className="relative bg-[#080B0F] text-[#E8EDF2] select-none font-sans"
-      style={{
-        height: isReducedMotion ? "100vh" : "280vh",
-      }}
-    >
-      {/* ── Fixed Canvas Viewport ─────────────────────────────────────────── */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <canvas ref={canvasRef} className="w-full h-full block" />
-
-        {/* Remote Sensing Satellite Imagery Layer (Blends in upon approach) */}
-        <div
-          className="absolute inset-0 transition-opacity duration-500 flex items-center justify-center pointer-events-none"
-          style={{ opacity: imageryOpacity }}
-        >
-          {/* High-res remote sensing optical crop with subtle vignette */}
-          <div className="relative w-full max-w-4xl h-[70vh] rounded-2xl overflow-hidden border border-[#518DB2]/30 shadow-2xl shadow-black/80">
-            <Image
-              src="/assets/optical_main_hd.png"
-              alt="Optical Earth observation imagery"
-              fill
-              className="object-cover brightness-95 contrast-105"
-              priority
-            />
-            {/* Dark vignette blending into space */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#080B0F] via-transparent to-[#080B0F]/80" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#080B0F] via-transparent to-[#080B0F]/80" />
-
-            {/* Sensor telemetry brackets */}
-            <div className="absolute top-4 left-5 font-mono text-[11px] text-[#9BD5E8]/80 flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-[#518DB2] animate-pulse" />
-              <span>SENSOR: SENTINEL-2 MSI / 10M GSD</span>
-            </div>
-            <div className="absolute bottom-4 right-5 font-mono text-[11px] text-[#9BD5E8]/70">
-              LAT 19°04&apos;N &middot; LON 72°52&apos;E
-            </div>
+    <div className="min-h-screen" style={{ background: "#080B0F", color: "#E8EDF2" }}>
+      {/* ── Navbar ─────────────────────────────────────────────────────── */}
+      <nav className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-6 sm:px-10" style={{ background: "rgba(8,11,15,0.85)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(81,141,178,0.15)", border: "1px solid rgba(81,141,178,0.3)" }}>
+            <SatIcon size={16} color="#9BD5E8" />
           </div>
+          <span className="text-sm font-semibold tracking-tight text-white">SatQuery AI</span>
         </div>
-      </div>
-
-      {/* ── Launch HUD Transition Overlay ─────────────────────────────────── */}
-      {isLaunching && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#080B0F]/80 backdrop-blur-md transition-opacity duration-300">
-          <div className="max-w-md w-full px-6 text-center space-y-4 font-mono">
-            <div className="w-12 h-12 mx-auto rounded-lg bg-[#518DB2]/20 border border-[#518DB2]/50 flex items-center justify-center text-[#9BD5E8] animate-pulse">
-              <SatelliteIcon size={24} color="#9BD5E8" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold tracking-wider text-[#9BD5E8]">
-                ESTABLISHING SENSOR LINK
-              </p>
-              <p className="text-sm text-white">
-                Connecting to SatQuery AI Workspace...
-              </p>
-            </div>
-            <div className="w-full h-1.5 bg-[#1A2129] rounded-full overflow-hidden border border-[#518DB2]/30">
-              <div className="h-full bg-[#518DB2] animate-pulse w-full transition-all duration-500" />
-            </div>
-            <div className="flex justify-between text-[10px] text-[#9BD5E8]/60">
-              <span>CONTROLLER: 8000</span>
-              <span>ORBIT: LOCKED</span>
-              <span>SCHEMA: RS-VLM</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSignIn}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors duration-150"
+            style={{ color: "rgba(232,237,242,0.5)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "white")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(232,237,242,0.5)")}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={handleLaunch}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
+            style={{ background: "#518DB2", color: "white" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#3D7396")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#518DB2")}
+          >
+            Launch SatQuery AI
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
-      )}
+      </nav>
 
-      {/* ── Minimal Header (Always Accessible) ────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-6 sm:px-10 border-b border-[#E8EDF2]/10 bg-[#080B0F]/40 backdrop-blur-md">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-md bg-[#518DB2]/20 border border-[#518DB2]/40 flex items-center justify-center text-[#9BD5E8]">
-            <SatelliteIcon size={18} color="#9BD5E8" />
-          </div>
-          <span className="text-base font-semibold tracking-tight text-white">
-            SatQuery AI
-          </span>
-        </div>
-      </header>
+      {/* ── Hero ───────────────────────────────────────────────────────── */}
+      <section className="relative pt-32 pb-20 px-6 sm:px-10 overflow-hidden">
+        {/* Subtle radial glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(81,141,178,0.08) 0%, transparent 70%)" }} />
 
-      {/* ── Foreground Content Layers (Sticky Fullscreen) ─────────────────── */}
-      <div className="sticky top-0 h-screen w-full flex flex-col justify-between p-6 sm:p-12 pointer-events-none z-10 pt-24">
-        {/* Top Spacer */}
-        <div />
-
-        {/* Center Dynamic Brand Experience */}
-        <div className="max-w-xl mx-auto text-center space-y-6 pointer-events-auto">
-          {/* State 1: Orbit / Arrival */}
-          {isOrbitState && (
-            <div
-              className={`space-y-4 transition-all duration-500 ease-out ${
-                mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-              }`}
-            >
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md border border-[#518DB2]/30 bg-[#518DB2]/10 text-xs font-mono text-[#9BD5E8]">
-                <SatelliteIcon size={13} color="#9BD5E8" />
-                <span>ORBITAL RECONNAISSANCE</span>
-              </div>
-
-              <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-tight">
-                Ask Earth.
-              </h1>
-
-              <p className="text-base sm:text-lg text-[#E8EDF2]/80 max-w-[42ch] mx-auto leading-relaxed">
-                Understand satellite imagery through natural language.
-              </p>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleLaunch}
-                  onMouseEnter={() => router.prefetch("/app")}
-                  className="inline-flex items-center space-x-2 px-5 py-3 rounded-md bg-[#518DB2] text-white text-sm font-semibold hover:bg-[#3D7396] transition-colors duration-150 shadow-lg shadow-[#518DB2]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
-                >
-                  <span>Launch SatQuery AI</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* State 2: Atmospheric Micro-Interaction during Approach */}
-          {isObservationState && (
-            <div className="space-y-3 transition-all duration-500 ease-out animate-fade-in">
-              <div className="inline-block px-4 py-2 rounded-md bg-[#080B0F]/80 border border-[#518DB2]/40 backdrop-blur-md font-mono text-sm sm:text-base text-white shadow-xl">
-                &ldquo;What&apos;s changed here?&rdquo;
-              </div>
-              <div className="flex items-center justify-center space-x-2 text-xs font-mono text-[#9BD5E8]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9BD5E8] animate-ping" />
-                <span>Analyzing multi-temporal sensor pass...</span>
-              </div>
-            </div>
-          )}
-
-          {/* State 3: Launch Entry Stage */}
-          {isLaunchState && (
-            <div className="space-y-6 transition-all duration-500 ease-out animate-fade-in">
-              <div className="space-y-2">
-                <h2 className="text-3xl sm:text-5xl font-bold text-white tracking-tight">
-                  SatQuery AI
-                </h2>
-                <p className="text-base sm:text-lg text-[#E8EDF2]/90 max-w-[40ch] mx-auto">
-                  Understand satellite imagery through natural language.
-                </p>
-                <p className="text-xs text-[#9BD5E8]/80 font-mono">
-                  Multimodal intelligence for Earth observation.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleLaunch}
-                  onMouseEnter={() => router.prefetch("/app")}
-                  className="inline-flex items-center space-x-2 px-6 py-3.5 rounded-md bg-[#518DB2] text-white text-base font-semibold hover:bg-[#3D7396] transition-colors duration-150 shadow-xl shadow-[#518DB2]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
-                >
-                  <span>Launch SatQuery AI</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Scroll Indicator (Visible on initial orbit screen) */}
-        <div className="flex items-center justify-between text-xs text-[#E8EDF2]/60 font-mono pointer-events-auto">
-          <div>
-            <span>EARTH OBSERVATION</span>
+        <div className="relative max-w-3xl mx-auto text-center space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-mono" style={{ background: "rgba(81,141,178,0.1)", border: "1px solid rgba(81,141,178,0.25)", color: "#9BD5E8" }}>
+            <SatIcon size={12} color="#9BD5E8" />
+            <span>ISRO / SAC &middot; Smart India Hackathon 2026</span>
           </div>
 
-          {!isLaunchState && (
-            <button
-              type="button"
-              onClick={scrollToLaunch}
-              className="flex items-center space-x-1.5 hover:text-white transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#9BD5E8]"
-            >
-              <span>Scroll to approach</span>
-              <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
-            </button>
-          )}
+          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1]">
+            Ask Questions.<br />
+            <span style={{ color: "#9BD5E8" }}>Unlock Intelligence From Earth.</span>
+          </h1>
 
-          {isLaunchState && (
+          <p className="text-base sm:text-lg max-w-[52ch] mx-auto leading-relaxed" style={{ color: "rgba(232,237,242,0.6)" }}>
+            SatQuery AI is an agentic vision-language system that lets you query satellite and remote-sensing imagery using natural language — and get evidence-backed answers.
+          </p>
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               type="button"
               onClick={handleLaunch}
-              className="hover:text-white transition-colors duration-150"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-base font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
+              style={{ background: "#518DB2", color: "white" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#3D7396")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#518DB2")}
             >
-              Ready for analysis &rarr;
+              Launch SatQuery AI
+              <ArrowRight className="w-4 h-4" />
             </button>
-          )}
-
-          <div>
-            <span>PS 26167</span>
+            <a
+              href="#capabilities"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-colors duration-150"
+              style={{ color: "rgba(232,237,242,0.5)", border: "1px solid rgba(232,237,242,0.1)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "white"; e.currentTarget.style.borderColor = "rgba(232,237,242,0.2)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(232,237,242,0.5)"; e.currentTarget.style.borderColor = "rgba(232,237,242,0.1)"; }}
+            >
+              Explore capabilities
+              <ChevronRight className="w-3.5 h-3.5" />
+            </a>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* ── What Is SatQuery AI ────────────────────────────────────────── */}
+      <section className="py-20 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-3xl mx-auto text-center space-y-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">What Is SatQuery AI?</h2>
+          <p className="text-sm sm:text-base leading-relaxed" style={{ color: "rgba(232,237,242,0.55)" }}>
+            SatQuery AI is a prototype intelligent assistant for Earth observation. It combines vision-language models
+            with deterministic remote-sensing tools to answer natural-language questions about satellite imagery.
+            Built for ISRO&apos;s Space Applications Centre as Problem Statement 26167, it demonstrates how agentic AI
+            can make remote-sensing analysis accessible to anyone who can ask a question.
+          </p>
+        </div>
+      </section>
+
+      {/* ── Capabilities ───────────────────────────────────────────────── */}
+      <section id="capabilities" className="py-20 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-5xl mx-auto space-y-12">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Capabilities</h2>
+            <p className="text-sm max-w-[48ch] mx-auto" style={{ color: "rgba(232,237,242,0.45)" }}>
+              Each capability is backed by a real implementation in the SatQuery AI pipeline.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {CAPABILITIES.map((cap) => (
+              <div
+                key={cap.title}
+                className="rounded-xl p-5 space-y-3 transition-colors duration-200"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `color-mix(in srgb, ${cap.color} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${cap.color} 25%, transparent)` }}>
+                  <cap.icon className="w-4 h-4" style={{ color: cap.color }} />
+                </div>
+                <h3 className="text-sm font-semibold text-white">{cap.title}</h3>
+                <p className="text-xs leading-relaxed" style={{ color: "rgba(232,237,242,0.45)" }}>{cap.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How It Works ───────────────────────────────────────────────── */}
+      <section className="py-20 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-3xl mx-auto space-y-12">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">How It Works</h2>
+            <p className="text-sm max-w-[48ch] mx-auto" style={{ color: "rgba(232,237,242,0.45)" }}>
+              From natural-language query to evidence-backed answer in seconds.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {PIPELINE_STEPS.map((step, i) => (
+              <div
+                key={step.label}
+                className="flex items-start gap-4 rounded-xl px-5 py-4"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+              >
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5"
+                  style={{ background: "rgba(81,141,178,0.15)", color: "#9BD5E8", border: "1px solid rgba(81,141,178,0.3)" }}
+                >
+                  {i + 1}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{step.label}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "rgba(232,237,242,0.4)" }}>{step.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Multimodal Remote Sensing ──────────────────────────────────── */}
+      <section className="py-20 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-3xl mx-auto space-y-12">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Multimodal Remote Sensing</h2>
+            <p className="text-sm max-w-[52ch] mx-auto" style={{ color: "rgba(232,237,242,0.45)" }}>
+              Designed for the workflows that matter in Earth observation.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {MODALITIES.map((m) => (
+              <div
+                key={m.name}
+                className="flex items-center justify-between rounded-xl px-5 py-4"
+                style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
+              >
+                <div>
+                  <p className="text-sm font-semibold text-white">{m.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "rgba(232,237,242,0.4)" }}>{m.examples}</p>
+                </div>
+                <span
+                  className="text-[10px] font-mono px-2 py-1 rounded"
+                  style={m.status === "supported"
+                    ? { background: "rgba(90,112,82,0.15)", color: "#5A7052", border: "1px solid rgba(90,112,82,0.3)" }
+                    : { background: "rgba(95,108,116,0.15)", color: "#5F6C74", border: "1px solid rgba(95,108,116,0.3)" }
+                  }
+                >
+                  {m.status === "supported" ? "SUPPORTED" : "ARCHITECTURAL"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Trust & Safety ─────────────────────────────────────────────── */}
+      <section className="py-20 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-3xl mx-auto space-y-8">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Trust & Safety</h2>
+            <p className="text-sm max-w-[52ch] mx-auto" style={{ color: "rgba(232,237,242,0.45)" }}>
+              SatQuery AI does not blindly fabricate geographic or analytical information.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl p-5 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <CheckCircle2 className="w-5 h-5" style={{ color: "#5A7052" }} />
+              <h3 className="text-sm font-semibold text-white">Deterministic When Possible</h3>
+              <p className="text-xs leading-relaxed" style={{ color: "rgba(232,237,242,0.4)" }}>
+                Geolocation uses CRS + affine transform metadata directly — no ML model guesses coordinates.
+              </p>
+            </div>
+            <div className="rounded-xl p-5 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <AlertTriangle className="w-5 h-5" style={{ color: "#A88A70" }} />
+              <h3 className="text-sm font-semibold text-white">Honest About Uncertainty</h3>
+              <p className="text-xs leading-relaxed" style={{ color: "rgba(232,237,242,0.4)" }}>
+                When metadata is unavailable, location is reported as undetermined — with explicit verification requests.
+              </p>
+            </div>
+            <div className="rounded-xl p-5 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <Shield className="w-5 h-5" style={{ color: "#9BD5E8" }} />
+              <h3 className="text-sm font-semibold text-white">Evidence-Oriented</h3>
+              <p className="text-xs leading-relaxed" style={{ color: "rgba(232,237,242,0.4)" }}>
+                Every answer includes tool evidence, confidence scores, and execution traces for auditability.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why SatQuery AI ────────────────────────────────────────────── */}
+      <section className="py-20 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-3xl mx-auto space-y-8">
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Why SatQuery AI?</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { icon: Search, text: "Natural-language interaction — no GIS expertise required" },
+              { icon: Brain, text: "Specialist routing — right model for every query type" },
+              { icon: Satellite, text: "Remote-sensing aware — optical, multispectral, SAR-ready" },
+              { icon: Sparkles, text: "Evidence-oriented — confidence scores and tool provenance" },
+              { icon: MapPin, text: "Geospatial intelligence — deterministic coordinate extraction" },
+              { icon: Layers, text: "Extensible architecture — new specialists plug in cleanly" },
+            ].map((item) => (
+              <div key={item.text} className="flex items-start gap-3 px-4 py-3 rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
+                <item.icon className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#9BD5E8" }} />
+                <p className="text-sm" style={{ color: "rgba(232,237,242,0.6)" }}>{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ──────────────────────────────────────────────────── */}
+      <section className="py-24 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-xl mx-auto text-center space-y-6">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+            Ready to analyze?
+          </h2>
+          <p className="text-sm" style={{ color: "rgba(232,237,242,0.45)" }}>
+            Upload satellite imagery and ask questions in natural language.
+          </p>
+          <div className="pt-2 flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={handleLaunch}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-base font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8]"
+              style={{ background: "#518DB2", color: "white" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#3D7396")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#518DB2")}
+            >
+              Launch SatQuery AI
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleSignIn}
+              className="text-xs font-medium transition-colors duration-150"
+              style={{ color: "rgba(232,237,242,0.35)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(232,237,242,0.6)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(232,237,242,0.35)")}
+            >
+              or sign in with Google to save your analyses
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ─────────────────────────────────────────────────────── */}
+      <footer className="py-8 px-6 sm:px-10" style={{ borderTop: "1px solid rgba(232,237,242,0.06)" }}>
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <SatIcon size={14} color="#518DB2" />
+            <span className="text-xs font-mono" style={{ color: "rgba(232,237,242,0.3)" }}>
+              SatQuery AI &middot; PS 26167 &middot; ISRO / SAC
+            </span>
+          </div>
+          <span className="text-[11px] font-mono" style={{ color: "rgba(232,237,242,0.2)" }}>
+            Smart India Hackathon 2026
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
