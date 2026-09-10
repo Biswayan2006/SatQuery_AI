@@ -63,13 +63,13 @@ function DashCard({
 // ─────────────────────────────────────────────────────────────────────────────
 const EXAMPLE_QUERIES = [
   "Describe the land cover types",
+  "Is this a rural or urban area?",
+  "Describe this image",
+  "Is there water visible in this scene?",
+  "Is this a SAR or optical image?",
+  "Are there any man-made structures visible?",
   "What changed between these images?",
-  "How many buildings are visible?",
-  "Identify all water bodies",
-  "Use SAR and optical together to analyze the scene",
-  "What percentage of the area is forested?",
-  "Detect any signs of flooding",
-  "Locate the roads in this image",
+  "Classify the land cover types",
 ] as const;
 
 function CommandBar({
@@ -1232,7 +1232,7 @@ export default function HomePage() {
           }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse flex-shrink-0" />
-          AI models loading — 0/5 ready. Responses will be mocked until models finish loading.
+          AI models loading — 0/5 ready. Please wait for models to finish loading before querying.
         </div>
       )}
 

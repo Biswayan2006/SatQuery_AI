@@ -177,6 +177,76 @@ export default function ResultDisplay({ result }: Props) {
         )}
       </EvidenceSection>
 
+      {/* ── Tool Evidence (deterministic layer) ─────────────────────── */}
+      {result.tool_evidence && result.tool_evidence.length > 0 && (
+        <EvidenceSection
+          icon={<BarChart3 className="w-3.5 h-3.5" style={{ color: "var(--water)" }} />}
+          label="Spectral tool evidence"
+          tag={`${result.tool_evidence.length} tool${result.tool_evidence.length > 1 ? "s" : ""}`}
+          tagColor="var(--water)"
+        >
+          <div className="flex flex-col gap-2">
+            {result.tool_evidence.map((ev, i) => (
+              <div
+                key={i}
+                className="rounded-md overflow-hidden"
+                style={{
+                  background: "var(--bg-raised)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div className="flex items-center justify-between px-2.5 py-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <span className="text-[11px] font-mono font-bold" style={{ color: "var(--water)" }}>
+                    {ev.tool}
+                  </span>
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{
+                      background: ev.status === "success"
+                        ? "color-mix(in srgb, var(--veg) 12%, transparent)"
+                        : ev.status === "unsupported"
+                          ? "color-mix(in srgb, var(--warning) 12%, transparent)"
+                          : "color-mix(in srgb, var(--danger) 12%, transparent)",
+                      border: `1px solid ${ev.status === "success"
+                        ? "color-mix(in srgb, var(--veg) 28%, transparent)"
+                        : ev.status === "unsupported"
+                          ? "color-mix(in srgb, var(--warning) 28%, transparent)"
+                          : "color-mix(in srgb, var(--danger) 28%, transparent)"}`,
+                      color: ev.status === "success"
+                        ? "var(--veg)"
+                        : ev.status === "unsupported"
+                          ? "var(--warning)"
+                          : "var(--danger)",
+                    }}
+                  >
+                    {ev.status}
+                  </span>
+                </div>
+                {ev.output && (
+                  <div className="p-2.5 space-y-1">
+                    {Object.entries(ev.output).map(([k, v]) => (
+                      <div key={k} className="flex items-start gap-2 text-[10px] font-mono">
+                        <span className="flex-shrink-0" style={{ color: "var(--text-muted)", minWidth: "80px" }}>
+                          {k}
+                        </span>
+                        <span style={{ color: "var(--water)" }}>
+                          {typeof v === "number" ? v.toFixed(4) : String(v)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {ev.reason && (
+                  <div className="px-2.5 py-1.5 text-[10px]" style={{ color: "var(--text-faint)", borderTop: "1px solid var(--border)" }}>
+                    {ev.reason}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </EvidenceSection>
+      )}
+
       {/* ── Key Objects (extended list) ────────────────────────────── */}
       {hasGrounding && result.grounding_boxes!.length > 0 && (
         <EvidenceSection

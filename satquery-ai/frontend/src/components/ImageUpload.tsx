@@ -82,9 +82,7 @@ export default function ImageUpload({
 
       {/* Dropzone */}
       {canAddMore && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className={`relative cursor-pointer rounded-xl border-2 border-dashed
             transition-all duration-300 p-6 ${isDragActive ? "dropzone-active" : ""}
             ${!canAddMore ? "opacity-40 cursor-not-allowed" : ""}
@@ -159,7 +157,7 @@ export default function ImageUpload({
               />
             </div>
           )}
-        </motion.div>
+        </div>
       )}
 
       {/* Format hint */}
