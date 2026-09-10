@@ -51,7 +51,7 @@ const MOCK_HISTORY = [
   },
 ];
 
-// Canonical task → spectral hue (matches dashboard task encoding)
+// Canonical task: spectral hue (matches dashboard task encoding)
 const taskHue = (t: string) =>
   t.includes("Change")
     ? "var(--change)"
@@ -62,7 +62,7 @@ const taskHue = (t: string) =>
     : t.includes("Ground")
     ? "var(--veg)"
     : t.includes("SAR") || t.includes("Fusion")
-    ? "var(--bare)"
+    ? "var(--sar)"
     : "var(--accent)";
 
 export default function HistoryPage() {

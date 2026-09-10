@@ -5,9 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, User } from "lucide-react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
+import NotificationsPopover from "@/components/layout/NotificationsPopover";
+import ProjectSelector from "@/components/layout/ProjectSelector";
 
 const NAV_ITEMS = [
-  { href: "/",         label: "Analyze New Query"  },
+  { href: "/app",      label: "Analyze New Query"  },
   { href: "/history",  label: "Execution History"  },
   { href: "/datasets", label: "Datasets"           },
   { href: "/reports",  label: "Reports"            },
@@ -46,15 +48,18 @@ export default function MobileHeader() {
           SatQuery AI
         </span>
 
-        {/* Theme + avatar */}
+        {/* Theme, Notifications, avatar */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <div
+          <NotificationsPopover />
+          <Link
+            href="/settings"
             className="w-9 h-9 rounded-full flex items-center justify-center no-tap"
             style={{ background: "var(--accent-soft)", border: "1px solid var(--accent-border)" }}
+            aria-label="Account Settings"
           >
             <User className="w-4 h-4" style={{ color: "var(--accent)" }} />
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -100,13 +105,7 @@ export default function MobileHeader() {
             <p className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>
               Project
             </p>
-            <button
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium no-tap"
-              style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
-            >
-              Urban Watch
-              <ChevronDown className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
-            </button>
+            <ProjectSelector />
           </div>
 
           {/* Nav */}

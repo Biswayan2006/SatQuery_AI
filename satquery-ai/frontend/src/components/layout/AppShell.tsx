@@ -1,21 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
 import MobileHeader from "./MobileHeader";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // Root route "/" is the public PS 26167 showcase site
+  if (pathname === "/") {
+    return <div className="min-h-screen">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
-      {/* Persistent left sidebar — desktop only */}
+      {/* Persistent left sidebar: desktop only */}
       <Sidebar />
 
-      {/* Top header — desktop only (md+) */}
+      {/* Top header: desktop only (md+) */}
       <Header />
 
-      {/* Top bar — mobile only (< md) */}
+      {/* Top bar: mobile only (< md) */}
       <MobileHeader />
 
       {/* ── Main content ───────────────────────────────────────────────────
@@ -31,7 +38,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           min-h-screen
         "
       >
-        {/* Inner content wrapper — matches subtle frame in reference */}
+        {/* Inner content wrapper: matches subtle frame in reference */}
         <div
           className="p-4 md:p-5 lg:p-6 min-h-[calc(100vh-4rem)]"
           style={{ background: "var(--bg-base)" }}
@@ -40,7 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Bottom tab bar — mobile only */}
+      {/* Bottom tab bar: mobile only */}
       <MobileBottomNav />
     </div>
   );

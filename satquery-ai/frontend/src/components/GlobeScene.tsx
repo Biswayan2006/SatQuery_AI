@@ -20,29 +20,29 @@ type Palette = {
 };
 
 const DARK: Palette = {
-  star: (a) => `rgba(148,212,255,${a})`,
-  atmo: "rgba(26,106,255,0.10)",
-  globe: ["#0d2a50", "#091a35", "#04091a"],
-  grid1: "rgba(58,171,255,0.18)",
-  grid2: "rgba(58,171,255,0.13)",
-  border: "rgba(58,171,255,0.25)",
-  shine: "rgba(255,255,255,0.07)",
-  orbit: "rgba(58,171,255,0.12)",
-  satGlow: (a) => `rgba(96,197,255,${a})`,
-  satCore: "#93d5ff",
+  star: (a) => `rgba(199,236,244,${a * 0.75})`,
+  atmo: "rgba(81,141,178,0.14)",
+  globe: ["#24333D", "#1C2428", "#141718"],
+  grid1: "rgba(119,180,208,0.22)",
+  grid2: "rgba(119,180,208,0.14)",
+  border: "rgba(119,180,208,0.30)",
+  shine: "rgba(199,236,244,0.08)",
+  orbit: "rgba(119,180,208,0.16)",
+  satGlow: (a) => `rgba(155,213,232,${a})`,
+  satCore: "#9BD5E8",
 };
 
 const LIGHT: Palette = {
-  star: (a) => `rgba(90,120,155,${a * 0.7})`,
-  atmo: "rgba(82,80,221,0.08)",
-  globe: ["#e2ecf8", "#bcd2ea", "#93b2d4"],
-  grid1: "rgba(31,99,192,0.24)",
-  grid2: "rgba(31,99,192,0.15)",
-  border: "rgba(31,99,192,0.32)",
+  star: (a) => `rgba(94,79,65,${a * 0.4})`,
+  atmo: "rgba(81,141,178,0.10)",
+  globe: ["#FAF7F0", "#E0D1C0", "#A88A70"],
+  grid1: "rgba(81,141,178,0.24)",
+  grid2: "rgba(81,141,178,0.15)",
+  border: "rgba(81,141,178,0.32)",
   shine: "rgba(255,255,255,0.55)",
-  orbit: "rgba(31,99,192,0.15)",
-  satGlow: (a) => `rgba(82,80,221,${a})`,
-  satCore: "#5250DD",
+  orbit: "rgba(81,141,178,0.16)",
+  satGlow: (a) => `rgba(81,141,178,${a})`,
+  satCore: "#518DB2",
 };
 
 export default function GlobeScene({ className = "" }: Props) {
@@ -144,7 +144,7 @@ export default function GlobeScene({ className = "" }: Props) {
       ctx!.arc(cx, cy, R, 0, Math.PI * 2);
       ctx!.clip();
 
-      // Grid lines — only draw visible (z >= 0) segments
+      // Grid lines: only draw visible (z >= 0) segments
       const LATS = [-60, -30, 0, 30, 60];
       const LNGS = Array.from({ length: 12 }, (_, i) => i * 30);
 

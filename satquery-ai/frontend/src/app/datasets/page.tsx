@@ -42,7 +42,7 @@ export default function DatasetsPage() {
             Drop GeoTIFF / TIFF files here
           </p>
           <p className="text-xs text-ink-faint">
-            or click to browse — supports Sentinel-1, Sentinel-2, Landsat, Cartosat
+            or click to browse: supports Sentinel-1, Sentinel-2, Landsat, Cartosat
           </p>
         </label>
         <div className="flex gap-3 flex-wrap">
