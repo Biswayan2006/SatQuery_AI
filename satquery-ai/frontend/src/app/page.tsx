@@ -569,17 +569,6 @@ export default function LandingPage() {
             SatQuery AI
           </span>
         </div>
-
-        <nav>
-          <button
-            type="button"
-            onClick={handleLaunch}
-            onMouseEnter={() => router.prefetch("/app")}
-            className="text-xs sm:text-sm font-medium px-4 py-2 rounded-md bg-[#518DB2] text-white hover:bg-[#3D7396] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9BD5E8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080B0F]"
-          >
-            Launch App
-          </button>
-        </nav>
       </header>
 
       {/* ── Foreground Content Layers (Sticky Fullscreen) ─────────────────── */}
