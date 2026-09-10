@@ -11,40 +11,30 @@ with the raw generation ``evidence`` (mean per-token log-probability and the
 per-token log-probs) needed for downstream calibration, plus a convenience
 ``confidence`` derived from that real signal and flagged
 ``confidence_is_calibrated=False``.
+
+Geographic claim guard
+----------------------
+BLIP is trained on web-crawled data (COCO, Conceptual Captions) and
+frequently memorizes place names as texture patterns (e.g. "aerial view of
+london" for ANY urban aerial image).  The geographic claim guard detects
+these unsupported location assertions and strips them, preserving honest
+visual descriptions while preventing geographic hallucinations.
 """
 from __future__ import annotations
 
 import logging
 import math
-import re
 from typing import Optional
 
 import numpy as np
 import torch
 from PIL import Image
 
+from models.geographic_guard import apply_geographic_guard, GeographicGuardResult
+
 logger = logging.getLogger("satquery.captioning")
 
 RS_CAPTION_PREFIX = "A satellite image showing"
-
-# Generic image-captioning checkpoints frequently emit memorized place names.
-# The captioning model has no geolocation input, so location claims are not
-# evidence and must not be presented as observations.
-_LOCATION_CLAIM_PATTERNS = (
-    re.compile(r"\s+(?:in|near|around)\s+(?:the\s+)?(?:city\s+of\s+)?[A-Z][\w-]*(?:,\s*[A-Z][\w-]*)?"),
-    re.compile(r"\s+(?:the\s+)?city\s+of\s+[A-Z][\w-]*(?:,\s*[A-Z][\w-]*)?"),
-)
-
-
-def _sanitize_location_claims(caption: str) -> tuple[str, bool]:
-    """Remove unsupported place-name claims from generic model captions."""
-    sanitized = caption
-    changed = False
-    for pattern in _LOCATION_CLAIM_PATTERNS:
-        sanitized, substitutions = pattern.subn("", sanitized)
-        changed = changed or substitutions > 0
-    sanitized = re.sub(r"\s{2,}", " ", sanitized).strip(" ,.-")
-    return sanitized, changed
 
 
 def _extract_caption_scores(gen, seq):
@@ -183,7 +173,9 @@ class RemoteSensingCaptioning:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def generate_caption(self, image: Image.Image) -> dict:
+    def generate_caption(
+        self, image: Image.Image, image_data: Optional[dict] = None,
+    ) -> dict:
         if image is None:
             return {
                 "caption": "No image provided.",
@@ -196,11 +188,11 @@ class RemoteSensingCaptioning:
 
         try:
             if self._is_git:
-                return self._git_caption(image)
+                return self._git_caption(image, image_data)
             elif self._is_blip2:
-                return self._blip2_caption(image)
+                return self._blip2_caption(image, image_data)
             else:
-                return self._blip_caption(image)
+                return self._blip_caption(image, image_data)
         except Exception as exc:
             logger.error("Captioning inference failed: %s", exc)
             return {
@@ -212,20 +204,38 @@ class RemoteSensingCaptioning:
 
     # ── Inference ─────────────────────────────────────────────────────────────
 
-    def _build_caption_result(self, caption: str, gen, seq, decoding: dict) -> dict:
+    def _build_caption_result(
+        self, caption: str, gen, seq, decoding: dict,
+        image_data: Optional[dict] = None,
+    ) -> dict:
         """
-        Assemble caption + raw generation evidence.  ``confidence`` is a
-        convenience value derived from the mean token log-probability (a real
-        model signal, NOT caption length); ``confidence_is_calibrated`` is
-        always False.
+        Assemble caption + raw generation evidence + geographic guard.
+
+        ``confidence`` is a convenience value derived from the mean token
+        log-probability (a real model signal, NOT caption length);
+        ``confidence_is_calibrated`` is always False.
         """
-        caption, location_claim_suppressed = _sanitize_location_claims(caption)
+        # Apply geographic claim guard
+        guard_result = apply_geographic_guard(caption, image_data)
+        safe_caption = guard_result.sanitized_caption
+
         seq_score, token_logprobs = _extract_caption_scores(gen, seq)
-        evidence = _caption_evidence(seq_score, token_logprobs, caption, decoding)
-        evidence["location_claim_suppressed"] = location_claim_suppressed
-        if location_claim_suppressed:
+        evidence = _caption_evidence(seq_score, token_logprobs, safe_caption, decoding)
+
+        # Geographic guard metadata
+        evidence["geographic_guard"] = {
+            "original_caption": guard_result.original_caption,
+            "geographic_claim_detected": guard_result.has_geographic_claims,
+            "geographic_claim_verified": guard_result.has_independent_evidence,
+            "verification_reason": guard_result.verification_reason,
+            "stripped_claims": guard_result.stripped_claims,
+            "claims_count": len(guard_result.geographic_claims),
+        }
+
+        if guard_result.stripped_claims:
             evidence["location_note"] = (
-                "Location claims were removed because captioning does not provide geolocation evidence."
+                f"Geographic claims ({', '.join(guard_result.stripped_claims)}) were removed "
+                "because the captioning model has no independent geolocation evidence."
             )
 
         if seq_score is not None:
@@ -234,13 +244,13 @@ class RemoteSensingCaptioning:
             confidence = 0.5  # neutral placeholder; flagged uncalibrated + score-less
 
         return {
-            "caption": caption,
+            "caption": safe_caption,
             "confidence": round(confidence, 4),
             "confidence_is_calibrated": False,
             "evidence": evidence,
         }
 
-    def _blip_caption(self, image: Image.Image) -> dict:
+    def _blip_caption(self, image: Image.Image, image_data: Optional[dict] = None) -> dict:
         # Conditional captioning with RS prefix
         inputs = self.processor(
             images=image,
@@ -269,9 +279,9 @@ class RemoteSensingCaptioning:
         if not caption.lower().startswith("a satellite"):
             caption = RS_CAPTION_PREFIX + " " + caption
 
-        return self._build_caption_result(caption, gen, seq, decoding)
+        return self._build_caption_result(caption, gen, seq, decoding, image_data)
 
-    def _blip2_caption(self, image: Image.Image) -> dict:
+    def _blip2_caption(self, image: Image.Image, image_data: Optional[dict] = None) -> dict:
         inputs = self.processor(
             images=image,
             text=RS_CAPTION_PREFIX,
@@ -299,9 +309,9 @@ class RemoteSensingCaptioning:
         if not caption.lower().startswith("a satellite"):
             caption = RS_CAPTION_PREFIX + " " + caption
 
-        return self._build_caption_result(caption, gen, seq, decoding)
+        return self._build_caption_result(caption, gen, seq, decoding, image_data)
 
-    def _git_caption(self, image: Image.Image) -> dict:
+    def _git_caption(self, image: Image.Image, image_data: Optional[dict] = None) -> dict:
         inputs = self.processor(images=image, return_tensors="pt").to(self.device)
 
         decoding = {"max_new_tokens": self.max_new_tokens}
@@ -315,7 +325,7 @@ class RemoteSensingCaptioning:
 
         seq = gen.sequences
         caption = self.processor.batch_decode(seq, skip_special_tokens=True)[0].strip()
-        return self._build_caption_result(caption, gen, seq, decoding)
+        return self._build_caption_result(caption, gen, seq, decoding, image_data)
 
     @staticmethod
     def _preprocess(image: Image.Image) -> Image.Image:

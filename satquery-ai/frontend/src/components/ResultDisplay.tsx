@@ -17,6 +17,7 @@ const TASK_LABELS: Record<string, { label: string; color: string; bg: string; bo
   CHANGE_VQA:         { label: "Change Q&A",         color: "var(--change)", bg: mix("var(--change)", 13), border: mix("var(--change)", 32) },
   CHANGE_DESCRIPTION: { label: "Change Detection",   color: "var(--change)", bg: mix("var(--change)", 13), border: mix("var(--change)", 32) },
   SAR_OPTICAL_FUSION: { label: "SAR-Optical Fusion", color: "var(--sar)",    bg: mix("var(--sar)", 13),    border: mix("var(--sar)", 32) },
+  GEOLOCATION:        { label: "Geographic Location", color: "var(--water)",  bg: mix("var(--water)", 13),  border: mix("var(--water)", 32) },
 };
 
 interface Props {

@@ -5,9 +5,10 @@ Coordinate / extent computations that are only possible when the raster carries
 a CRS + affine transform.  Without geolocation metadata every one of these tools
 returns a structured ``unsupported`` result — we never invent coordinates.
 
-  * :class:`PixelToLatLonTool`      — a detected pixel → (lat, lon) [+ bbox]
-  * :class:`ImageBoundsTool`         — geographic bounding box of the whole scene
-  * :class:`GroundResolutionTool`    — ground sampling distance (metres/pixel)
+  * :class:`PixelToLatLonTool`        — a detected pixel → (lat, lon) [+ bbox]
+  * :class:`ImageBoundsTool`           — geographic bounding box of the whole scene
+  * :class:`GroundResolutionTool`      — ground sampling distance (metres/pixel)
+  * :class:`ReverseGeocodingTool`      — CRS metadata → place name via Nominatim
 
 All reprojection to WGS84 reuses the affine transform stored on the raster and,
 where the CRS is projected, ``pyproj``.  The math is deterministic; the AI layer
@@ -203,6 +204,120 @@ class GroundResolutionTool(Tool):
                 "native_unit": unit,
             },
             provenance={"crs": raster.crs, "transform": list(raster.transform)},
+        )
+
+
+class ReverseGeocodingTool(Tool):
+    """Reverse-geocode the scene centre to a human-readable place name.
+
+    Uses the raster's CRS + affine transform to compute the centre lat/lon,
+    then queries the Nominatim (OpenStreetMap) reverse geocoder.  Returns
+    structured ``GeographicEvidence`` on success, ``unsupported`` if the
+    raster lacks geospatial metadata, or ``error`` if the geocoder fails.
+
+    The place labels are **not** produced by an ML model — they come from
+    OSM community data via a deterministic HTTP lookup.  Coordinate
+    extraction is deterministic; place-name accuracy depends on OSM coverage.
+    """
+
+    name = "reverse_geocoding"
+    description = "Geographic place name from raster CRS metadata via reverse geocoding"
+
+    # Nominatim usage policy: max 1 req/s, custom User-Agent required.
+    _NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
+    _USER_AGENT = "SatQueryAI/1.0 (satellite-image-analysis)"
+    _TIMEOUT_S = 5
+
+    def run(self, raster: RasterInput) -> ToolResult:  # type: ignore[override]
+        blocked = _require_geo(self.name, raster)
+        if blocked:
+            return blocked
+
+        # Compute scene-centre in WGS84 from the four-corner method.
+        w, h = raster.width, raster.height
+        corners_px = [(0, 0), (w, 0), (w, h), (0, h)]
+        lats, lons = [], []
+        for cx, cy in corners_px:
+            a, b, c, d, e, f = raster.transform[:6]
+            nx = a * cx + b * cy + c
+            ny = d * cx + e * cy + f
+            lat, lon = _to_wgs84(raster.crs, nx, ny)
+            lats.append(lat)
+            lons.append(lon)
+
+        center_lat = (min(lats) + max(lats)) / 2
+        center_lon = (min(lons) + max(lons)) / 2
+
+        # Query Nominatim reverse geocoder.
+        try:
+            import requests as _requests
+            resp = _requests.get(
+                self._NOMINATIM_URL,
+                params={
+                    "lat": round(center_lat, 7),
+                    "lon": round(center_lon, 7),
+                    "format": "jsonv2",
+                    "zoom": 10,
+                    "addressdetails": 1,
+                },
+                headers={"User-Agent": self._USER_AGENT},
+                timeout=self._TIMEOUT_S,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+        except ImportError:
+            return ToolResult.error(
+                self.name, "requests library not available for reverse geocoding"
+            )
+        except Exception as exc:
+            return ToolResult.error(
+                self.name, f"reverse geocoding request failed: {exc}"
+            )
+
+        # Validate the response shape.
+        if not isinstance(body, dict):
+            return ToolResult.error(
+                self.name, "unexpected geocoder response format"
+            )
+
+        address = body.get("address", {})
+        if not isinstance(address, dict):
+            return ToolResult.error(
+                self.name, "geocoder response missing address details"
+            )
+
+        # Extract hierarchical place components (best-effort).
+        city = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("county")
+        )
+        state = address.get("state") or address.get("region")
+        country = address.get("country")
+        display_name = body.get("display_name") or body.get("name") or ""
+
+        data: Dict[str, Any] = {
+            "latitude": round(center_lat, 7),
+            "longitude": round(center_lon, 7),
+            "city": city,
+            "state": state,
+            "country": country,
+            "display_name": str(display_name),
+            "source": "geospatial_metadata",
+            "verified": True,
+        }
+
+        return ToolResult.success(
+            self.name,
+            data=data,
+            provenance={
+                "crs": raster.crs,
+                "transform": list(raster.transform),
+                "geocoder": "nominatim",
+                "zoom": 10,
+            },
         )
 
 

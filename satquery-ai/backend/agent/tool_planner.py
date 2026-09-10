@@ -108,6 +108,13 @@ class ToolPlanner:
     def _plan_single(self, query: str, raster, task_type: TaskType) -> List[Dict[str, Any]]:
         selected: List[str] = []
 
+        # GEOLOCATION task: deterministic geolocation only, no ML models.
+        if task_type == TaskType.GEOLOCATION:
+            if raster.has_geo:
+                selected.extend(["reverse_geocoding", "image_bounds", "ground_resolution"])
+            # Return immediately — no spectral/visual tools for geolocation.
+            return [self.tools.run(name, raster).to_dict() for name in selected]
+
         # Intent-driven spectral indices (only added when the query is about them
         # OR the task is open-ended captioning, where a scene summary helps).
         if _match(query, _VEGETATION_KW) and raster.has_band("nir") and raster.has_band("red"):
@@ -123,7 +130,7 @@ class ToolPlanner:
 
         # Location / extent questions.
         if _match(query, _LOCATION_KW) and raster.has_geo:
-            selected.extend(["image_bounds", "ground_resolution"])
+            selected.extend(["image_bounds", "ground_resolution", "reverse_geocoding"])
 
         # Captioning with no specific intent → a compact scene summary via
         # spectral statistics (always safe, purely descriptive).

@@ -88,6 +88,14 @@ TASK_DESCRIPTIONS: Dict[str, List[str]] = {
         "interpret multimodal remote sensing data with SAR and optical",
         "use both SAR and multispectral imagery for scene understanding",
     ],
+    "GEOLOCATION": [
+        "determine the geographic location of this satellite image",
+        "find out where this image was captured",
+        "identify the coordinates of this satellite scene",
+        "reverse geocode this image to find the place name",
+        "what city or country is this satellite image from",
+        "extract location information from the image metadata",
+    ],
 }
 
 # Default blending weights

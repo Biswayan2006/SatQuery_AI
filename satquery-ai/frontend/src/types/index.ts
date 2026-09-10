@@ -118,7 +118,8 @@ export type TaskType =
   | "GROUNDING"
   | "CHANGE_VQA"
   | "CHANGE_DESCRIPTION"
-  | "SAR_OPTICAL_FUSION";
+  | "SAR_OPTICAL_FUSION"
+  | "GEOLOCATION";
 
 export type UploadedImage = {
   file: File;

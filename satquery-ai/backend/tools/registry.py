@@ -13,7 +13,7 @@ from typing import Dict, List, Optional
 
 from .base import Tool, ToolResult
 from .change import ChangeAreaTool, ConnectedRegionStatisticsTool
-from .geolocation import GroundResolutionTool, ImageBoundsTool, PixelToLatLonTool
+from .geolocation import GroundResolutionTool, ImageBoundsTool, PixelToLatLonTool, ReverseGeocodingTool
 from .sar import SARBackscatterStatisticsTool
 from .spectral import NDBITool, NDVITool, NDWITool, SpectralStatisticsTool
 
@@ -39,6 +39,7 @@ class ToolRegistry:
             PixelToLatLonTool(),
             ImageBoundsTool(),
             GroundResolutionTool(),
+            ReverseGeocodingTool(),
             ConnectedRegionStatisticsTool(),
         ):
             self.register(tool)

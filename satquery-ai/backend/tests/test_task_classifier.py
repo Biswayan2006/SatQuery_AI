@@ -11,6 +11,7 @@ Covers:
   - Spatial localization questions → GROUNDING
   - Counting questions → GROUNDING
   - Change detection questions → CHANGE_VQA / CHANGE_DESCRIPTION
+  - Geographic location questions → GEOLOCATION
 """
 from __future__ import annotations
 
@@ -206,3 +207,98 @@ class TestEdgeCases:
             modalities=["sar", "optical"],
         )
         assert task == TaskType.SAR_OPTICAL_FUSION
+
+
+# ── GEOLOCATION (geographic intent guard) ─────────────────────────────────────
+
+GEOLOCATION_GUARD_CASES = [
+    ("Where was this image captured?", "WHERE QUESTIONS"),
+    ("What city is this image from?", "CITY"),
+    ("What country is this image from?", "COUNTRY"),
+    ("Which country is this?", "COUNTRY"),
+    ("What country was this image taken in?", "COUNTRY"),
+    ("Which nation is this image from?", "NATION"),
+    ("What is the location of this image?", "LOCATION"),
+    ("Where is this image located?", "LOCATION"),
+    ("What are the coordinates of this image?", "COORDINATES"),
+    ("Give me the latitude and longitude.", "COORDINATES"),
+    ("Identify the location.", "LOCATION"),
+    ("Tell me where this image was taken.", "WHERE QUESTIONS"),
+]
+
+
+@pytest.mark.parametrize(
+    "query,category",
+    GEOLOCATION_GUARD_CASES,
+    ids=[q[:50] for q, _ in GEOLOCATION_GUARD_CASES],
+)
+class TestGeographicGuardRouting:
+    def test_routes_to_geolocation(self, classifier, query, category):
+        result = classifier.classify_detailed(query, num_images=1)
+        assert result.task_type == TaskType.GEOLOCATION, (
+            f"[{category}] Query {query!r} should route to GEOLOCATION, "
+            f"got {result.task_type}"
+        )
+
+    def test_confidence_strong(self, classifier, query, category):
+        result = classifier.classify_detailed(query, num_images=1)
+        assert result.confidence >= 0.9, (
+            f"[{category}] Query {query!r} should have high confidence, "
+            f"got {result.confidence}"
+        )
+
+    def test_semantic_router_not_used(self, classifier, query, category):
+        result = classifier.classify_detailed(query, num_images=1)
+        assert not result.used_semantic_router, (
+            f"[{category}] Query {query!r} should not use semantic router"
+        )
+
+
+# ── NON-GEOGRAPHIC regression (must NOT become GEOLOCATION) ──────────────────
+
+NON_GEOGRAPHIC_VQA_CASES = [
+    "Is there water in this image?",
+    "Is this a rural or urban area?",
+    "Is there a road?",
+]
+
+
+@pytest.mark.parametrize("query", NON_GEOGRAPHIC_VQA_CASES, ids=lambda q: q[:50])
+class TestNonGeographicVQA:
+    def test_stays_single_vqa(self, classifier, query):
+        result = classifier.classify_detailed(query, num_images=1)
+        assert result.task_type == TaskType.SINGLE_VQA, (
+            f"Query {query!r} should stay SINGLE_VQA, got {result.task_type}"
+        )
+
+
+NON_GEOGRAPHIC_CAPTION_CASES = [
+    "Describe this image.",
+    "Describe the scene.",
+    "What does this image show?",
+]
+
+
+@pytest.mark.parametrize("query", NON_GEOGRAPHIC_CAPTION_CASES, ids=lambda q: q[:50])
+class TestNonGeographicCaption:
+    def test_stays_captioning(self, classifier, query):
+        result = classifier.classify_detailed(query, num_images=1)
+        assert result.task_type == TaskType.CAPTIONING, (
+            f"Query {query!r} should stay CAPTIONING, got {result.task_type}"
+        )
+
+
+NON_GEOGRAPHIC_LANDCOVER_CASES = [
+    "Classify the land cover types.",
+    "What type of land cover is present?",
+]
+
+
+@pytest.mark.parametrize("query", NON_GEOGRAPHIC_LANDCOVER_CASES, ids=lambda q: q[:50])
+class TestNonGeographicLandCover:
+    def test_stays_land_cover(self, classifier, query):
+        result = classifier.classify_detailed(query, num_images=1)
+        assert result.task_type == TaskType.LAND_COVER_CLASSIFICATION, (
+            f"Query {query!r} should stay LAND_COVER_CLASSIFICATION, "
+            f"got {result.task_type}"
+        )

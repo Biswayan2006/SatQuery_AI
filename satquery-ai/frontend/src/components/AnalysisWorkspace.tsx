@@ -1308,7 +1308,7 @@ export function AnalysisWorkspace() {
           }}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse flex-shrink-0" />
-          AI models loading: 0/5 ready. Responses will be mocked until models finish loading.
+          AI models loading — please wait before analyzing images.
         </div>
       )}
 

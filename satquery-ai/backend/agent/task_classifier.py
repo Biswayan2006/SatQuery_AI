@@ -25,6 +25,112 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
+
+# ── Geographic intent guard ────────────────────────────────────────────────────
+# Deterministic, regex-based detection of explicit geographic-location intent.
+# Runs BEFORE keyword scoring + semantic routing to prevent the CLIP-based
+# semantic router from overriding clear geographic intent with GROUNDING/VQA.
+#
+# The guard catches five categories:
+#   1. WHERE questions  ("where was this image captured?")
+#   2. CITY             ("what city is this?")
+#   3. COUNTRY/NATION   ("what country is this?")
+#   4. LOCATION         ("what is the location of this image?")
+#   5. COORDINATES      ("what are the coordinates?")
+
+_GEOGRAPHIC_INTENT_PATTERNS = [
+    # Category 1 — WHERE (image-specific geographic queries)
+    re.compile(
+        r"where\s+(?:was|is|did)\s+"
+        r"(?:this|the|your)\s+"
+        r"(?:satellite\s+)?(?:image|photo|picture|scene|capture|data)"
+        r"(?:\s+(?:taken|captured|from|of|located))?",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"where\s+(?:was|is)\s+(?:this|the)\s+"
+        r"(?:satellite\s+)?(?:image|photo|picture|scene)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"can\s+you\s+tell\s+me\s+where\s+"
+        r"(?:this|the)\s+(?:satellite\s+)?(?:image|photo|picture|scene)\s+"
+        r"(?:was|is)\s+(?:taken|captured|from|located)?",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"tell\s+me\s+where\s+"
+        r"(?:this|the)\s+(?:satellite\s+)?(?:image|photo|picture|scene)\s+"
+        r"(?:was|is)\s+(?:taken|captured|from|located)?",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"where\s+(?:was|is)\s+(?:this|the)\s+(?:captured|taken)",
+        re.IGNORECASE,
+    ),
+    # Category 2 — CITY
+    re.compile(
+        r"(?:what|which|name\s+the|identify\s+the?|tell\s+me\s+the?)\s+"
+        r"city\s+"
+        r"(?:is\s+this|was\s+this|is\s+this\s+image|was\s+this\s+(?:image|taken|captured)|"
+        r"(?:is|does)\s+(?:this|the)\s+(?:image|photo|picture|scene)\s+(?:from|in|of)|"
+        r"(?:in|from)\s+this)",
+        re.IGNORECASE,
+    ),
+    # Category 3 — COUNTRY / NATION
+    re.compile(
+        r"(?:what|which)\s+(?:country|nation)\s+"
+        r"(?:is\s+this|was\s+this|is\s+this\s+image|was\s+this\s+(?:image|taken|captured)|"
+        r"(?:is|does)\s+(?:this|the)\s+(?:image|photo|picture|scene)\s+(?:from|in|of|belong)|"
+        r"(?:was|is)\s+(?:this|the)\s+(?:satellite\s+)?(?:image|photo|picture|scene)\s+"
+        r"(?:taken|captured|in|from))",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:what|which)\s+(?:country|nation)\s+"
+        r"(?:does\s+(?:this|the)\s+(?:image|photo|picture|scene)\s+belong\s+to)",
+        re.IGNORECASE,
+    ),
+    # Category 4 — LOCATION
+    re.compile(
+        r"(?:what|where)\s+(?:is\s+the\s+)?location\s+"
+        r"(?:of\s+(?:this|the)\s+(?:satellite\s+)?(?:image|photo|picture|scene)|"
+        r"is\s+this|is\s+this\s+image)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:identify|tell\s+me|give\s+me|show\s+me)\s+"
+        r"(?:the\s+)?location\s*\.?\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"can\s+you\s+identify\s+the\s+location",
+        re.IGNORECASE,
+    ),
+    # Category 5 — COORDINATES / GPS / LAT-LON
+    re.compile(
+        r"(?:what\s+are\s+the\s+)?(?:coordinates|gps\s+coordinates|"
+        r"latitude\s+and\s+longitude|lat[\s/-]lon|lat[\s/-]lng)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:give\s+me|show\s+me|provide|tell\s+me)\s+"
+        r"(?:the\s+)?(?:coordinates|gps\s+coordinates|"
+        r"latitude\s+and\s+longitude|lat[\s/-]lon|lat[\s/-]lng)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:what\s+are\s+)?(?:the\s+)?(?:latitude|longitude|lat|lon|lng)\b",
+        re.IGNORECASE,
+    ),
+]
+
+
+def _detect_geographic_intent(query: str) -> bool:
+    """Return True if the query unambiguously asks for geographic location."""
+    q = query.strip()
+    return any(p.search(q) for p in _GEOGRAPHIC_INTENT_PATTERNS)
+
 logger = logging.getLogger("satquery.task_classifier")
 
 
@@ -36,6 +142,7 @@ class TaskType(str, Enum):
     CHANGE_VQA = "CHANGE_VQA"
     CHANGE_DESCRIPTION = "CHANGE_DESCRIPTION"
     SAR_OPTICAL_FUSION = "SAR_OPTICAL_FUSION"
+    GEOLOCATION = "GEOLOCATION"
 
 
 # ── Entity lexicon for "describe X" disambiguation ────────────────────────────
@@ -112,6 +219,32 @@ _RULES: Dict[TaskType, Dict[str, float]] = {
         "major land-cover": 0.98, "what type of land": 0.98,
         "land-cover type": 0.98, "land cover type": 0.98,
     },
+    TaskType.GEOLOCATION: {
+        "where was": 0.95, "where is this": 0.95, "where this image": 0.95,
+        "what location": 0.9, "what place": 0.85, "which city": 0.9,
+        "which country": 0.9, "which location": 0.9,
+        "what are the coordinates": 0.95, "what coordinates": 0.9,
+        "where was this": 0.95, "where is this image": 0.95,
+        "where from": 0.85, "image from": 0.8, "satellite image taken": 0.9,
+        "image captured": 0.9, "image taken": 0.85,
+        "what country": 0.92, "which country": 0.92,
+        "what nation": 0.9, "which nation": 0.9,
+        "what city": 0.92, "which city": 0.92,
+        "what are the coordinates": 0.95, "give me the coordinates": 0.92,
+        "latitude and longitude": 0.93, "gps coordinates": 0.92,
+        "coordinates of this": 0.92, "coordinates of the": 0.9,
+        "where is this located": 0.93, "where was this taken": 0.93,
+        "where was this captured": 0.93, "where is this image from": 0.93,
+        "where was this image": 0.93, "where is this satellite": 0.93,
+        "where was this satellite": 0.93, "tell me where": 0.88,
+        "can you tell me where": 0.88, "identify the location": 0.9,
+        "tell me the location": 0.9, "location of this": 0.88,
+        "what is the location": 0.9, "where was this image taken": 0.93,
+        "where was this image captured": 0.93, "what country is this": 0.92,
+        "what country was this": 0.92, "what city is this": 0.92,
+        "which country is this": 0.92, "which city is this": 0.92,
+        "what nation is this": 0.9, "which nation is this": 0.9,
+    },
 }
 
 
@@ -169,6 +302,17 @@ class TaskClassifier:
                 confidence=0.99,
                 scores=scores,
                 reason="Explicit land-cover classification request; routed to RS-CLIP zero-shot labels",
+                used_semantic_router=False,
+            )
+
+        if _detect_geographic_intent(query):
+            scores = {task.value: 0.0 for task in TaskType}
+            scores[TaskType.GEOLOCATION.value] = 0.99
+            return ClassificationResult(
+                task_type=TaskType.GEOLOCATION,
+                confidence=0.99,
+                scores=scores,
+                reason="Explicit geographic intent detected; deterministic geolocation bypass",
                 used_semantic_router=False,
             )
 
@@ -345,6 +489,7 @@ class TaskClassifier:
 
         priority = [
             TaskType.SAR_OPTICAL_FUSION,
+            TaskType.GEOLOCATION,
             TaskType.GROUNDING,
             TaskType.CHANGE_VQA,
             TaskType.CHANGE_DESCRIPTION,

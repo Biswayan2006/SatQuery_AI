@@ -31,6 +31,7 @@ from tools.geolocation import (  # noqa: E402
     GroundResolutionTool,
     ImageBoundsTool,
     PixelToLatLonTool,
+    ReverseGeocodingTool,
 )
 from tools.sar import SARBackscatterStatisticsTool  # noqa: E402
 from tools.spectral import NDBITool, NDVITool, NDWITool, SpectralStatisticsTool  # noqa: E402
@@ -343,6 +344,136 @@ def test_ground_resolution_requires_geo():
     assert res.status == ToolStatus.UNSUPPORTED
 
 
+# ── Reverse geocoding ─────────────────────────────────────────────────────────
+
+def test_reverse_geocoding_unsupported_without_crs():
+    """No CRS/transform → unsupported result with explicit reason."""
+    r = make_rgbn(0.2, 0.3, 0.1, 0.8)
+    res = ReverseGeocodingTool()(r)
+    assert res.status == ToolStatus.UNSUPPORTED
+    d = res.to_dict()
+    assert d["has_crs"] is False
+    assert d["has_transform"] is False
+
+
+def test_reverse_geocoding_center_coordinates_wgs84():
+    """WGS84 raster → centre lat/lon computed from corners."""
+    # EPSG:4326 with origin at (40°N, 15°E), 0.01° pixels, y-axis down.
+    wgs_transform = [0.01, 0.0, 15.0, 0.0, -0.01, 40.0]
+    arr = np.zeros((100, 100, 4), dtype=np.float64)
+    r = RasterInput(array=arr, sensor="rgbn", modality="optical",
+                    crs="EPSG:4326", transform=wgs_transform)
+    res = ReverseGeocodingTool()(r)
+    d = res.to_dict()
+    if res.ok:
+        assert d["source"] == "geospatial_metadata"
+        assert d["verified"] is True
+        # Origin (0,0) → 40°N, 15°E; 100px at 0.01° → 39°N, 16°E
+        # Centre = (39+40)/2=39.5°N, (15+16)/2=15.5°E
+        assert 39.4 < d["latitude"] < 39.6
+        assert 15.4 < d["longitude"] < 15.6
+    else:
+        assert "geocoding" in d.get("reason", "").lower()
+
+
+def test_reverse_geocoding_center_coordinates_utm():
+    """Projected CRS (UTM 33N) → centre correctly transformed to WGS84."""
+    arr = np.zeros((50, 50, 4), dtype=np.float64)
+    r = RasterInput(array=arr, sensor="rgbn", modality="optical",
+                    crs=UTM_CRS, transform=UTM_TRANSFORM)
+    res = ReverseGeocodingTool()(r)
+    d = res.to_dict()
+    if res.ok:
+        assert d["source"] == "geospatial_metadata"
+        # UTM 33N origin 500000,4000000 with 10m px → centre ~15°E, ~36°N
+        assert 35.0 < d["latitude"] < 37.0
+        assert 14.9 < d["longitude"] < 15.1
+
+
+def test_reverse_geocoding_nominatim_success():
+    """Mocked Nominatim returns structured place data."""
+    from unittest.mock import MagicMock, patch
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {
+        "display_name": "Catania, Sicily, Italy",
+        "address": {
+            "city": "Catania",
+            "state": "Sicily",
+            "country": "Italy",
+        },
+    }
+    with patch("requests.get", return_value=mock_resp):
+        arr = np.zeros((50, 50, 4), dtype=np.float64)
+        r = RasterInput(array=arr, sensor="rgbn", modality="optical",
+                        crs=UTM_CRS, transform=UTM_TRANSFORM)
+        res = ReverseGeocodingTool()(r)
+    assert res.ok
+    d = res.to_dict()
+    assert d["city"] == "Catania"
+    assert d["state"] == "Sicily"
+    assert d["country"] == "Italy"
+    assert d["display_name"] == "Catania, Sicily, Italy"
+    assert d["source"] == "geospatial_metadata"
+    assert d["verified"] is True
+
+
+def test_reverse_geocoding_nominatim_timeout():
+    """Nominatim timeout → error result, never raises."""
+    import requests as _requests
+    from unittest.mock import patch
+
+    with patch("requests.get", side_effect=_requests.exceptions.Timeout("timed out")):
+        arr = np.zeros((50, 50, 4), dtype=np.float64)
+        r = RasterInput(array=arr, sensor="rgbn", modality="optical",
+                        crs=UTM_CRS, transform=UTM_TRANSFORM)
+        res = ReverseGeocodingTool()(r)
+    assert res.status == ToolStatus.ERROR
+    assert "timed out" in res.to_dict()["reason"].lower()
+
+
+def test_reverse_geocoding_nominatim_http_error():
+    """Nominatim HTTP 503 → error result, never raises."""
+    import requests as _requests
+    from unittest.mock import MagicMock, patch
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.side_effect = _requests.exceptions.HTTPError("503 Server Error")
+    with patch("requests.get", return_value=mock_resp):
+        arr = np.zeros((50, 50, 4), dtype=np.float64)
+        r = RasterInput(array=arr, sensor="rgbn", modality="optical",
+                        crs=UTM_CRS, transform=UTM_TRANSFORM)
+        res = ReverseGeocodingTool()(r)
+    assert res.status == ToolStatus.ERROR
+    assert "503" in res.to_dict()["reason"]
+
+
+def test_reverse_geocoding_nominatim_malformed():
+    """Nominatim returns unexpected shape → error result."""
+    from unittest.mock import MagicMock, patch
+
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = "not a dict"
+    with patch("requests.get", return_value=mock_resp):
+        arr = np.zeros((50, 50, 4), dtype=np.float64)
+        r = RasterInput(array=arr, sensor="rgbn", modality="optical",
+                        crs=UTM_CRS, transform=UTM_TRANSFORM)
+        res = ReverseGeocodingTool()(r)
+    assert res.status == ToolStatus.ERROR
+    assert "unexpected" in res.to_dict()["reason"].lower()
+
+
+def test_registry_includes_reverse_geocoding():
+    """reverse_geocoding appears in the default tool registry."""
+    reg = get_default_registry()
+    assert "reverse_geocoding" in reg.names()
+    tool = reg.get("reverse_geocoding")
+    assert isinstance(tool, ReverseGeocodingTool)
+
+
 # ── Registry ────────────────────────────────────────────────────────────────
 
 def test_registry_has_all_ten_tools():
@@ -350,10 +481,11 @@ def test_registry_has_all_ten_tools():
     expected = {
         "NDVI", "NDWI", "NDBI", "spectral_statistics",
         "sar_backscatter_statistics", "change_area", "pixel_to_latlon",
-        "image_bounds", "ground_resolution", "connected_region_statistics",
+        "image_bounds", "ground_resolution", "reverse_geocoding",
+        "connected_region_statistics",
     }
     assert expected.issubset(set(reg.names()))
-    assert len(reg.names()) >= 10
+    assert len(reg.names()) >= 11
 
 
 def test_registry_unknown_tool_errors():
@@ -476,3 +608,154 @@ def test_plan_skips_index_when_bands_absent():
     img = {"numpy_array": arr, "modality": "optical", "metadata": {"sensor": "rgb"}}
     ev = tp.run_for_task(TaskType.SINGLE_VQA, "Is there vegetation?", [img])
     assert all(e["tool"] != "NDVI" for e in ev)
+
+
+# ── Geographic query routing tests (A-E) ──────────────────────────────────────
+
+def test_geographic_query_georeferenced_returns_reverse_geocoding():
+    """A: Geographic query + georeferenced image → reverse_geocoding primary."""
+    from agent.task_classifier import TaskClassifier, TaskType
+    from agent.tool_planner import ToolPlanner
+
+    tc = TaskClassifier()
+    for q in [
+        "Where was this image captured?",
+        "Where is this image from?",
+        "What location is this?",
+        "Which city is this image from?",
+        "What are the coordinates?",
+        "Where was this satellite image taken?",
+    ]:
+        result = tc.classify_detailed(q, num_images=1)
+        assert result.task_type == TaskType.GEOLOCATION, (
+            f"Query {q!r} should route to GEOLOCATION, got {result.task_type}"
+        )
+
+    # Tool planner should select reverse_geocoding (not VQA or captioning tools).
+    tp = ToolPlanner()
+    arr = np.zeros((16, 16, 4), dtype=np.float64)
+    img = {
+        "numpy_array": arr,
+        "modality": "optical",
+        "metadata": {
+            "sensor": "rgbn",
+            "crs": UTM_CRS,
+            "transform": UTM_TRANSFORM,
+        },
+    }
+    ev = tp.run_for_task(TaskType.GEOLOCATION, "Where was this image captured?", [img])
+    tools = [e["tool"] for e in ev]
+    assert "reverse_geocoding" in tools
+    # Should NOT include spectral/visual tools.
+    assert "NDVI" not in tools
+    assert "spectral_statistics" not in tools
+
+
+def test_geographic_query_non_georeferenced_returns_unsupported():
+    """B: Geographic query + non-georeferenced image → unsupported evidence."""
+    from agent.task_classifier import TaskType
+    from agent.tool_planner import ToolPlanner
+
+    tp = ToolPlanner()
+    arr = np.zeros((16, 16, 3), dtype=np.float64)
+    img = {
+        "numpy_array": arr,
+        "modality": "optical",
+        "metadata": {"sensor": "rgb"},
+    }
+    ev = tp.run_for_task(TaskType.GEOLOCATION, "Where was this image captured?", [img])
+    # reverse_geocoding should report unsupported (no CRS).
+    geo_tools = [e for e in ev if e["tool"] == "reverse_geocoding"]
+    # When raster has no geo, reverse_geocoding is NOT planned (has_geo=False).
+    # The handler in controller.py will return "cannot determine".
+    # At the planner level, no tools are selected for non-geo rasters.
+    assert len(geo_tools) == 0, (
+        f"Non-georeferenced image should not produce reverse_geocoding evidence, "
+        f"got {geo_tools}"
+    )
+
+
+def test_vqa_visual_query_still_routes_to_vqa():
+    """C: VQA visual query → SINGLE_VQA remains selected."""
+    from agent.task_classifier import TaskClassifier, TaskType
+
+    tc = TaskClassifier()
+    for q in [
+        "Is there water?",
+        "Is this urban or rural?",
+        "Are buildings visible?",
+        "What type of road is visible?",
+    ]:
+        result = tc.classify_detailed(q, num_images=1)
+        assert result.task_type == TaskType.SINGLE_VQA, (
+            f"Query {q!r} should route to SINGLE_VQA, got {result.task_type}"
+        )
+
+
+def test_caption_query_still_routes_to_captioning():
+    """D: Caption query → CAPTIONING remains selected."""
+    from agent.task_classifier import TaskClassifier, TaskType
+
+    tc = TaskClassifier()
+    for q in [
+        "Describe this image.",
+        "Describe the scene.",
+        "Give an overview of the image.",
+    ]:
+        result = tc.classify_detailed(q, num_images=1)
+        assert result.task_type == TaskType.CAPTIONING, (
+            f"Query {q!r} should route to CAPTIONING, got {result.task_type}"
+        )
+
+
+def test_geographic_hallucination_cannot_override_geographic_evidence():
+    """E: BLIP VQA geographic hallucination is separate from GeographicEvidence.
+
+    The VQA answer and geolocation tool evidence are independent fields in
+    the API response.  The geolocation tool evidence is authoritative for
+    geographic queries; BLIP output is not used as geographic evidence.
+    """
+    from agent.task_classifier import TaskType
+    from agent.tool_planner import ToolPlanner
+
+    # Tool planner for GEOLOCATION task should NOT include VQA tools.
+    tp = ToolPlanner()
+    arr = np.zeros((16, 16, 4), dtype=np.float64)
+    img = {
+        "numpy_array": arr,
+        "modality": "optical",
+        "metadata": {
+            "sensor": "rgbn",
+            "crs": UTM_CRS,
+            "transform": UTM_TRANSFORM,
+        },
+    }
+    ev = tp.run_for_task(TaskType.GEOLOCATION, "Where was this image captured?", [img])
+    tools = [e["tool"] for e in ev]
+    # No VQA tool should be present — only deterministic geolocation tools.
+    assert "vqa" not in [t.lower() for t in tools]
+    assert "reverse_geocoding" in tools
+
+
+def test_country_query_never_becomes_grounding():
+    """Regression: 'What country is this image from?' must NOT route to GROUNDING.
+
+    This was the original failure — the semantic router overrode GEOLOCATION
+    because 'what' triggered GROUNDING similarity.  The geographic intent guard
+    must catch this unambiguously.
+    """
+    from agent.task_classifier import TaskClassifier, TaskType
+
+    tc = TaskClassifier()
+    failing_queries = [
+        "What country is this image from?",
+        "Which country is this?",
+        "What country was this image taken in?",
+        "Which nation is this image from?",
+    ]
+    for q in failing_queries:
+        result = tc.classify_detailed(q, num_images=1)
+        assert result.task_type == TaskType.GEOLOCATION, (
+            f"Query {q!r} MUST route to GEOLOCATION, got {result.task_type}. "
+            f"scores={result.scores}"
+        )

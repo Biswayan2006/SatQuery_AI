@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from .base import Tool, ToolResult, ToolStatus
 from .change import ChangeAreaTool, ConnectedRegionStatisticsTool
-from .geolocation import GroundResolutionTool, ImageBoundsTool, PixelToLatLonTool
+from .geolocation import GroundResolutionTool, ImageBoundsTool, PixelToLatLonTool, ReverseGeocodingTool
 from .raster import RasterInput
 from .registry import ToolRegistry, get_default_registry
 from .sar import SARBackscatterStatisticsTool
@@ -43,4 +43,5 @@ __all__ = [
     "ChangeAreaTool", "ConnectedRegionStatisticsTool",
     # Geolocation
     "PixelToLatLonTool", "ImageBoundsTool", "GroundResolutionTool",
+    "ReverseGeocodingTool",
 ]

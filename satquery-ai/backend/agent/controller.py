@@ -55,6 +55,7 @@ _TASK_KEY = {
     TaskType.CHANGE_VQA: TASK_CHANGE,
     TaskType.CHANGE_DESCRIPTION: TASK_CHANGE,
     TaskType.SAR_OPTICAL_FUSION: TASK_FUSION,
+    TaskType.GEOLOCATION: None,  # deterministic — no ML confidence model
 }
 
 
@@ -303,6 +304,13 @@ class AgenticController:
                 steps=["validate_pair", "align_images", "fuse_modalities", "run_fusion_vqa", "format_answer"],
                 parameters={"fusion_method": "feature_concat"},
             ),
+            TaskType.GEOLOCATION: ExecutionPlan(
+                task_type=task_type,
+                task_confidence=task_confidence,
+                model_names=[],
+                steps=["validate_input", "geolocate"],
+                parameters={},
+            ),
         }
 
         plan = base.get(task_type, base[TaskType.CAPTIONING])
@@ -312,9 +320,10 @@ class AgenticController:
 
     @staticmethod
     def _is_counting_query(query: str) -> bool:
+        import re
         normalized = query.lower()
         return any(
-            phrase in normalized
+            re.search(r'\b' + re.escape(phrase) + r'\b', normalized)
             for phrase in ("how many", "count", "number of", "count of")
         )
 
@@ -442,6 +451,7 @@ class AgenticController:
             TaskType.CHANGE_VQA: self._exec_change_vqa,
             TaskType.CHANGE_DESCRIPTION: self._exec_change_description,
             TaskType.SAR_OPTICAL_FUSION: self._exec_sar_fusion,
+            TaskType.GEOLOCATION: self._exec_geolocation,
         }
         handler = handlers.get(plan.task_type, self._exec_captioning)
 
@@ -595,6 +605,21 @@ class AgenticController:
         self, plan: ExecutionPlan, raw: RawResults, images: List[Dict]
     ) -> ConfidenceReport:
         """Route the raw model output to the task-specific confidence extractor."""
+        # GEOLOCATION is deterministic — high confidence if georeferenced.
+        if plan.task_type == TaskType.GEOLOCATION:
+            geo_out = raw.model_outputs.get("geolocation", {})
+            if geo_out.get("verified"):
+                return ConfidenceReport(
+                    final=0.95, confidence_type="deterministic",
+                    uncertainty="low", requires_verification=False,
+                    notes=["deterministic geolocation from CRS metadata"],
+                )
+            return ConfidenceReport(
+                final=0.0, confidence_type=CONF_UNAVAILABLE,
+                uncertainty="high", requires_verification=True,
+                notes=["no geospatial metadata available"],
+            )
+
         task_key = _TASK_KEY.get(plan.task_type)
         if task_key is None:
             return ConfidenceReport(
@@ -709,6 +734,66 @@ class AgenticController:
             model_outputs={"vqa": out},
         )
 
+    async def _exec_geolocation(
+        self, plan: ExecutionPlan, images: List[Dict], query: str
+    ) -> RawResults:
+        """Deterministic geolocation — no ML model involved.
+
+        If the image has CRS + transform, run ReverseGeocodingTool and return
+        the place name.  Otherwise return an explicit "cannot determine" answer.
+        """
+        if not images:
+            return RawResults(
+                answer="Geographic location cannot be determined: no image provided.",
+                confidence=0.0,
+                is_degraded=True,
+            )
+
+        image = images[0]
+        metadata = image.get("metadata", {})
+        has_geo = bool(metadata.get("crs") and metadata.get("transform"))
+
+        if not has_geo:
+            return RawResults(
+                answer=(
+                    "The geographic location cannot be reliably determined from "
+                    "this image because it does not contain usable geospatial "
+                    "metadata (CRS + affine transform)."
+                ),
+                confidence=0.95,
+                model_outputs={"geolocation": {"source": "unavailable", "verified": False}},
+            )
+
+        # Run the deterministic ReverseGeocodingTool via the tool planner.
+        if self.tool_planner is not None:
+            try:
+                from tools import RasterInput
+                raster = RasterInput.from_image_data(image)
+                result = self.tool_planner.tools.run("reverse_geocoding", raster)
+                if result.ok:
+                    d = result.to_dict()
+                    city = d.get("city") or "unknown city"
+                    state = d.get("state") or ""
+                    country = d.get("country") or "unknown country"
+                    parts = [p for p in [city, state, country] if p]
+                    location_str = ", ".join(parts)
+                    lat = d.get("latitude", 0)
+                    lon = d.get("longitude", 0)
+                    answer = f"Location: {location_str} (lat: {lat}, lon: {lon})"
+                    return RawResults(
+                        answer=answer,
+                        confidence=0.9,
+                        model_outputs={"geolocation": d},
+                    )
+            except Exception as exc:
+                logger.warning("Geolocation tool failed: %s", exc)
+
+        return RawResults(
+            answer="Geographic location could not be determined.",
+            confidence=0.0,
+            is_degraded=True,
+        )
+
     async def _exec_land_cover_classification(
         self, plan: ExecutionPlan, images: List[Dict], query: str
     ) -> RawResults:
@@ -770,17 +855,19 @@ class AgenticController:
 
     async def _exec_captioning(self, plan: ExecutionPlan, images: List[Dict], query: str) -> RawResults:
         pil = self._get_pil(images[0])
-        
+        image_data = images[0]  # full dict with metadata/CRS for geographic guard
+
         # Use concurrency-controlled inference
         def inference_func(model, **kwargs):
-            return model.generate_caption(kwargs['pil'])
-        
+            return model.generate_caption(kwargs['pil'], kwargs.get('image_data'))
+
         out = await self.registry.inference_with_context(
             name="RemoteSensingCaptioning",
             inference_func=inference_func,
             request_id=None,
             session_id=None,
-            pil=pil
+            pil=pil,
+            image_data=image_data,
         )
         
         return RawResults(
