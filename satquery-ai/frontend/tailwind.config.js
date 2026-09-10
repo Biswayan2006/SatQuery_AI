@@ -33,7 +33,7 @@ module.exports = {
         },
         border: "var(--border)", // legacy key kept
 
-        // Interactive accent — spectral indigo
+        // Interactive accent: steel or mid blue
         accent: {
           DEFAULT: "var(--accent)",
           hover:   "var(--accent-hover)",
@@ -44,7 +44,7 @@ module.exports = {
         },
         primary: "var(--accent)", // sub-page alias (bg-primary / text-primary)
 
-        // DATA palette — meaningful sensor / land-cover encodings
+        // DATA palette: meaningful sensor and land-cover encodings
         veg:    { DEFAULT: "var(--veg)",    soft: "var(--veg-soft)"    },
         sar:    { DEFAULT: "var(--sar)",    soft: "var(--sar-soft)"    },
         water:  { DEFAULT: "var(--water)",  soft: "var(--water-soft)"  },
@@ -57,7 +57,7 @@ module.exports = {
         danger:  "var(--danger)",
 
         // ── Legacy palette remaps ─────────────────────────────────────────
-        // Old class names keep working AND become theme-aware for free.
+        // Old class names keep working and become theme-aware for free.
         space: {
           950: "var(--bg-base)",
           900: "var(--bg-surface)",
@@ -92,7 +92,7 @@ module.exports = {
         "spectral-band": "linear-gradient(90deg, var(--veg), var(--water), var(--accent), var(--sar), var(--bare))",
       },
 
-      // ── Shadows (token-backed → theme-aware) ───────────────────────────────
+      // ── Shadows (token-backed) ───────────────────────────────────────────
       boxShadow: {
         sm:     "var(--shadow-sm)",
         DEFAULT:"var(--shadow-md)",

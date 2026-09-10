@@ -128,7 +128,7 @@ export default function ImageUpload({
                   : "Add second image (for change detection / fusion)"}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                GeoTIFF, TIFF, PNG, JPEG — up to 50 MB
+                GeoTIFF, TIFF, PNG, JPEG (up to 50 MB)
               </p>
             </div>
             <button

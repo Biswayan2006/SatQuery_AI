@@ -3,139 +3,137 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════════════════════
-   SATQUERY AI — "SPECTRAL EARTH-OBSERVATION" DESIGN SYSTEM
+   SATQUERY AI: "SPECTRAL EARTH-OBSERVATION" DESIGN SYSTEM
    ──────────────────────────────────────────────────────────────────────────
    Single source of truth for color. Every component reads these tokens
    (via Tailwind color keys backed by var(), or var(--token) inline).
-   NEVER hardcode a hex in a component — add/adjust a token here instead.
+   Never hardcode a hex in a component: add or adjust a token here instead.
 
    Philosophy: the imagery is the hero, COLOR IS DATA.
-     · Chrome (surfaces/text/lines) is quiet and near-neutral.
-     · One interactive accent — spectral indigo — never competes with imagery.
-     · The 5 DATA hues are meaningful sensor/land-cover encodings and are the
+     * Chrome (surfaces/text/lines) is quiet and near-neutral.
+     * One interactive accent: deep steel blue (light) or mid blue (dark).
+     * The 5 DATA hues are meaningful sensor and land-cover encodings and are the
        only saturated color in the UI. Reuse them for evidence, not decoration:
-         --veg    vegetation / NDVI-high
-         --sar    SAR / radar backscatter
-         --water  water bodies / hydrology
-         --bare   bare earth / built-up / urban
-         --change detected change / alert
+         --veg    vegetation / NDVI-high (muted moss green)
+         --sar    SAR / radar backscatter (slate)
+         --water  water bodies / hydrology (sky blue)
+         --bare   bare earth / built-up / urban (warm tan)
+         --change detected change / alert (terracotta brick red)
 
    Two themes:
-     :root / [data-theme="light"]  →  "Atlas paper"       (warm map stock)
-     [data-theme="dark"]           →  "Night observation" (cool near-black)
+     :root / [data-theme="light"]  :  "Atlas paper"       (warm map stock)
+     [data-theme="dark"]           :  "Night observation" (cool near-black)
    The no-flash script in layout.tsx sets data-theme before first paint.
    ══════════════════════════════════════════════════════════════════════════ */
 
 @layer base {
-  /* ─── LIGHT · "Atlas paper" ─────────────────────────────────────────────
-     Warm topographic-map stock. Deliberately NOT the generic #F4F1EA cream:
-     a deeper, ochre-leaning paper with green-ink text + indigo accent.        */
+  /* ─── LIGHT: "Atlas paper" ─────────────────────────────────────────────
+     Warm topographic-map stock with dark umber ink and deep steel blue accent. */
   :root,
   [data-theme="light"] {
     color-scheme: light;
 
     /* Surfaces */
-    --bg-base:      #E9E2D4;   /* page — warm map paper                     */
-    --bg-surface:   #FAF7F0;   /* cards / panels — light paper, lifts off base */
-    --bg-raised:    #F1EBDF;   /* inputs, nested rows, hover fills          */
-    --bg-inset:     #E1D8C7;   /* wells, image backdrops, code              */
-    --bg-elevated:  #FFFDF9;   /* popovers / menus (with shadow)            */
+    --bg-base:      #E0D1C0;   /* page: warm map paper */
+    --bg-surface:   color-mix(in srgb, #E0D1C0 55%, white 45%);   /* cards and panels */
+    --bg-raised:    color-mix(in srgb, #E0D1C0 75%, white 25%);   /* inputs, nested rows, hover fills */
+    --bg-inset:     color-mix(in srgb, #E0D1C0 75%, #A88A70 25%); /* wells, image backdrops, code */
+    --bg-elevated:  color-mix(in srgb, #E0D1C0 40%, white 60%);   /* popovers and menus */
 
-    /* Text — deep topographic ink with a faint green cast */
-    --text-primary:   #1E2A24;
-    --text-secondary: #46554D;
-    --text-muted:     #78837B;
-    --text-faint:     #9BA298;
+    /* Text: dark umber ink */
+    --text-primary:   #5E4F41;
+    --text-secondary: color-mix(in srgb, #5E4F41 80%, #E0D1C0 20%);
+    --text-muted:     color-mix(in srgb, #5E4F41 55%, #E0D1C0 45%);
+    --text-faint:     color-mix(in srgb, #5E4F41 35%, #E0D1C0 65%);
 
     /* Lines */
-    --border:        rgba(58, 50, 32, 0.16);
-    --border-strong: rgba(58, 50, 32, 0.28);
+    --border:        rgba(168, 138, 112, 0.28);
+    --border-strong: rgba(168, 138, 112, 0.45);
 
-    /* Interactive accent — spectral indigo (deepened for paper contrast) */
-    --accent:          #5250DD;
-    --accent-hover:    #4340CC;
-    --accent-active:   #3936B8;
+    /* Interactive accent: deep steel blue */
+    --accent:          #3D7396;
+    --accent-hover:    color-mix(in srgb, #3D7396 85%, #1C1F20 15%);
+    --accent-active:   color-mix(in srgb, #3D7396 70%, #1C1F20 30%);
     --accent-contrast: #FFFFFF;
-    --accent-soft:     color-mix(in srgb, var(--accent) 11%, transparent);
-    --accent-border:   color-mix(in srgb, var(--accent) 34%, transparent);
+    --accent-soft:     color-mix(in srgb, var(--accent) 12%, transparent);
+    --accent-border:   color-mix(in srgb, var(--accent) 30%, transparent);
 
-    /* DATA palette — deepened for legibility on light paper */
-    --veg:    #2F8F52;
-    --sar:    #A9761B;
-    --water:  #1F63C0;
-    --bare:   #A65C2A;
-    --change: #C63840;
+    /* DATA palette */
+    --veg:    #5A7052;
+    --sar:    #5F6C74;
+    --water:  #9BD5E8;
+    --bare:   #A88A70;
+    --change: #A14B3E;
 
-    /* Status (kept distinct from data hues where it matters) */
-    --success: #2E8C50;
-    --warning: #A9761B;
-    --danger:  #C63840;
+    /* Status */
+    --success: #5A7052;
+    --warning: #A88A70;
+    --danger:  #A14B3E;
 
     /* Effects */
-    --overlay:   rgba(40, 34, 22, 0.42);
+    --overlay:   rgba(28, 31, 32, 0.45);
     --focus:     var(--accent);
-    --shadow-sm: 0 1px 2px rgba(52, 44, 28, 0.10);
-    --shadow-md: 0 6px 20px rgba(52, 44, 28, 0.12), 0 1px 2px rgba(52, 44, 28, 0.08);
-    --shadow-lg: 0 18px 44px rgba(52, 44, 28, 0.18), 0 4px 10px rgba(52, 44, 28, 0.10);
+    --shadow-sm: 0 1px 2px rgba(94, 79, 65, 0.08);
+    --shadow-md: 0 6px 20px rgba(94, 79, 65, 0.10), 0 1px 2px rgba(94, 79, 65, 0.06);
+    --shadow-lg: 0 18px 44px rgba(94, 79, 65, 0.16), 0 4px 10px rgba(94, 79, 65, 0.08);
     --ring:      0 0 0 3px var(--accent-soft);
 
-    /* Data soft fills / borders (auto-derived from theme hue) */
-    --veg-soft:    color-mix(in srgb, var(--veg) 13%, transparent);
-    --sar-soft:    color-mix(in srgb, var(--sar) 15%, transparent);
-    --water-soft:  color-mix(in srgb, var(--water) 12%, transparent);
+    /* Data soft fills and borders */
+    --veg-soft:    color-mix(in srgb, var(--veg) 14%, transparent);
+    --sar-soft:    color-mix(in srgb, var(--sar) 14%, transparent);
+    --water-soft:  color-mix(in srgb, var(--water) 14%, transparent);
     --bare-soft:   color-mix(in srgb, var(--bare) 14%, transparent);
-    --change-soft: color-mix(in srgb, var(--change) 13%, transparent);
+    --change-soft: color-mix(in srgb, var(--change) 14%, transparent);
   }
 
-  /* ─── DARK · "Night observation" ────────────────────────────────────────
-     Cool near-black blue-green, like earth at night from orbit. Data hues
-     are brightened a touch so they read as luminous against the dark.        */
+  /* ─── DARK: "Night observation" ────────────────────────────────────────
+     Near-black blue-slate with luminous mid blue accent and clear data hues. */
   [data-theme="dark"] {
     color-scheme: dark;
 
     /* Surfaces */
-    --bg-base:      #0A0F14;
-    --bg-surface:   #10171F;
-    --bg-raised:    #17212B;
-    --bg-inset:     #0C1319;
-    --bg-elevated:  #141D26;
+    --bg-base:      #1C1F20;
+    --bg-surface:   color-mix(in srgb, #1C1F20 90%, #518DB2 10%);
+    --bg-raised:    color-mix(in srgb, #1C1F20 82%, #518DB2 18%);
+    --bg-inset:     color-mix(in srgb, #1C1F20 95%, #518DB2 5%);
+    --bg-elevated:  color-mix(in srgb, #1C1F20 84%, #518DB2 16%);
 
-    /* Text */
-    --text-primary:   #E9F1F7;
-    --text-secondary: #A6B5C1;
-    --text-muted:     #6E7E8C;
-    --text-faint:     #55636F;
+    /* Text: cool near-white */
+    --text-primary:   color-mix(in srgb, #C7ECF4 70%, white 30%);
+    --text-secondary: color-mix(in srgb, #C7ECF4 70%, transparent 30%);
+    --text-muted:     color-mix(in srgb, #C7ECF4 45%, transparent 55%);
+    --text-faint:     color-mix(in srgb, #C7ECF4 28%, transparent 72%);
 
     /* Lines */
-    --border:        rgba(146, 166, 184, 0.15);
-    --border-strong: rgba(146, 166, 184, 0.27);
+    --border:        rgba(119, 180, 208, 0.18);
+    --border-strong: rgba(119, 180, 208, 0.32);
 
-    /* Interactive accent — spectral indigo (luminous on dark) */
-    --accent:          #6D6BF5;
-    --accent-hover:    #8583F8;
-    --accent-active:   #5B59E6;
-    --accent-contrast: #FFFFFF;
+    /* Interactive accent: mid blue, luminous on dark */
+    --accent:          #77B4D0;
+    --accent-hover:    #9BD5E8;
+    --accent-active:   #518DB2;
+    --accent-contrast: #1C1F20;
     --accent-soft:     color-mix(in srgb, var(--accent) 18%, transparent);
-    --accent-border:   color-mix(in srgb, var(--accent) 42%, transparent);
+    --accent-border:   color-mix(in srgb, var(--accent) 38%, transparent);
 
-    /* DATA palette — brightened for dark */
-    --veg:    #57C07C;
-    --sar:    #E6B24A;
-    --water:  #4C93E8;
-    --bare:   #D18A4E;
-    --change: #F0555A;
+    /* DATA palette */
+    --veg:    #5A7052;
+    --sar:    #5F6C74;
+    --water:  #9BD5E8;
+    --bare:   #A88A70;
+    --change: #A14B3E;
 
     /* Status */
-    --success: #4FBF77;
-    --warning: #E3A93C;
-    --danger:  #F0555A;
+    --success: #5A7052;
+    --warning: #A88A70;
+    --danger:  #A14B3E;
 
     /* Effects */
-    --overlay:   rgba(4, 8, 12, 0.68);
+    --overlay:   rgba(10, 15, 18, 0.72);
     --focus:     var(--accent);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
     --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(146, 166, 184, 0.04);
+    --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(119, 180, 208, 0.08);
     --ring:      0 0 0 3px var(--accent-soft);
 
     /* Data soft fills */
@@ -147,8 +145,7 @@
   }
 
   /* ─── Legacy variable aliases ───────────────────────────────────────────
-     Older component CSS + a few inline styles still reference these names.
-     Point them at the new tokens so everything themes for free.              */
+     Older component CSS and inline styles point to these aliases.            */
   :root {
     --color-base:    var(--bg-base);
     --color-sidebar: var(--bg-base);
@@ -188,7 +185,7 @@ body {
   transition: background-color 0.4s ease, color 0.3s ease;
 }
 
-/* Data / numeric values only — never body copy */
+/* Data and numeric values only: never body copy */
 .font-mono, .data-mono, code, kbd, samp, pre {
   font-family: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
   font-feature-settings: "tnum" 1, "zero" 1;
@@ -248,14 +245,14 @@ body {
 .primary  { color: var(--accent); }
 
 /* ─── Hairline / spectral rule ──────────────────────────────────────────────
-   A thin rule tinted across the data spectrum — a subject-grounded divider
-   for hero edges. Use SPARINGLY (one memorable place).                       */
+   A thin rule tinted across the data spectrum: a subject-grounded divider
+   for hero edges. Use sparingly (one memorable place).                       */
 .spectral-rule {
   height: 2px;
   border: 0;
   background: linear-gradient(90deg,
-    var(--veg) 0%, var(--water) 30%, var(--accent) 52%,
-    var(--sar) 74%, var(--bare) 100%);
+    var(--veg) 0%, var(--water) 25%, var(--accent) 50%,
+    var(--sar) 75%, var(--bare) 100%);
   opacity: 0.9;
 }
 
@@ -270,7 +267,7 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   MODALITY / STATUS BADGES  →  now driven by the DATA palette
+   MODALITY / STATUS BADGES: now driven by the DATA palette
    ══════════════════════════════════════════════════════════════════════════ */
 .badge-optical       { background: var(--water-soft);  color: var(--water);  border: 1px solid var(--accent-border); }
 .badge-sar           { background: var(--sar-soft);    color: var(--sar);    border: 1px solid color-mix(in srgb, var(--sar) 34%, transparent); }
@@ -298,7 +295,7 @@ body {
 .loading-dot:nth-child(2) { animation-delay: 0.2s; }
 .loading-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* ─── Terminal trace (ExecutionTrace) → data hues ───────────────────────── */
+/* ─── Terminal trace (ExecutionTrace): data hues ───────────────────────── */
 .terminal-line         { font-family: var(--font-plex-mono), monospace; font-size: 0.72rem; line-height: 1.6; color: var(--veg); }
 .terminal-line.info    { color: var(--water); }
 .terminal-line.warn    { color: var(--sar); }

@@ -69,26 +69,26 @@ export default function ChangeMap({ changeMapB64, changePercentage, className = 
           className="w-full object-contain max-h-72"
         />
 
-        {/* Hover overlay with legend — dark scrim over imagery in both themes */}
+        {/* Hover overlay with legend: dark scrim over imagery in both themes */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: hovered ? 1 : 0 }}
           className="absolute inset-0 flex items-end p-3 pointer-events-none"
-          style={{ background: "rgba(6,10,14,0.62)" }}
+          style={{ background: "var(--overlay)" }}
         >
           <div className="flex items-center gap-4 text-xs w-full">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-sm" style={{ background: "var(--change)" }} />
-              <span style={{ color: "#E9F1F7" }}>Changed</span>
+              <span style={{ color: "var(--accent-contrast)" }}>Changed</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-sm" style={{ background: "var(--veg)" }} />
-              <span style={{ color: "#E9F1F7" }}>Unchanged</span>
+              <span style={{ color: "var(--accent-contrast)" }}>Unchanged</span>
             </div>
             {changePercentage != null && (
               <div className="ml-auto flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" style={{ color: "#E3A93C" }} />
-                <span className="font-semibold" style={{ color: "#E3A93C" }}>
+                <AlertTriangle className="w-3 h-3" style={{ color: "var(--change)" }} />
+                <span className="font-semibold" style={{ color: "var(--change)" }}>
                   {changePercentage.toFixed(1)}% changed
                 </span>
               </div>
