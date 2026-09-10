@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/theme/ThemeToggle";
 import NotificationsPopover from "@/components/layout/NotificationsPopover";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/":         "SatQuery AI: Interactive Vision-Language Assistant",
+  "/app":      "SatQuery AI: Interactive Vision-Language Assistant",
   "/history":  "Execution History",
   "/datasets": "Datasets",
   "/reports":  "Generated Reports",

@@ -18,7 +18,7 @@ function SatIcon() {
 }
 
 const TABS = [
-  { href: "/",         label: "Analyze",  Icon: SatIcon   },
+  { href: "/app",      label: "Analyze",  Icon: SatIcon   },
   { href: "/history",  label: "History",  Icon: History   },
   { href: "/datasets", label: "Data",     Icon: Database  },
   { href: "/reports",  label: "Reports",  Icon: FileText  },
