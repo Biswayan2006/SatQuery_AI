@@ -62,3 +62,5 @@ Thumbs.db
 
 # ── HuggingFace cache (if stored elsewhere) ────
 ~/.cache/huggingface/
+
+satquery-ai/backend/_benchmarks/
